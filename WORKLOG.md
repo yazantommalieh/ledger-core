@@ -75,3 +75,12 @@ draft of every document in this repo. Entries below say who did what.
   states, errors; Day 6 adds the accrual schedule and capitalisation; a window
   summary closes. Reading the Day 5 block is the fastest way to see the
   problem the assignment is really about.
+- **11:54** — `tests/test_scenario.py` (one class per acceptance criterion;
+  rejected ones asserted in corrected form with the original wording quoted)
+  and `tests/test_engine_edges.py` (rejection paths the stream never hits:
+  settle-twice, settle a declined auth, duplicate auth id, over-settlement
+  flagged, reversal-of-reversal, reversal of an instalment credit, fee on
+  zero balance, unconfigured-currency fee, capitalisation excluded from its
+  own day's accrual). Two of my first edge assertions forgot that a 3-day
+  mini-window capitalises interest on Day 3 (90.12 vs 90.00) — fixed the
+  tests, not the engine; the engine was right. 67 green.
