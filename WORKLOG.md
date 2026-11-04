@@ -38,3 +38,18 @@ draft of every document in this repo. Entries below say who did what.
   with no settlement referencing it). Rejections are records too. Future-dated
   value_dates are refused at the store (none in scope; keeps balance-as-of
   unambiguous). 27 tests green.
+- **11:50** — `scenario.py` (the stream as data) and `engine.py` **v1**:
+  end-of-day checks only the current day's close for the overdraft fee, and
+  stores each day's interest accrual as computed that evening. Ran it against
+  the stream. It works mechanically, and it is wrong in two ways that the
+  spec's own wording rules out:
+  1. After E7 (posted Day 5, value Day 2) the restated Day 2 close is −370.00
+     and Day 4 is −155.00, yet only Day 5 gets a fee. The rule says the fee is
+     assessed when "that day's closing ledger balance (all entries with
+     value_date ≤ that day) is negative" — a value-date definition. A fee
+     engine that only ever looks at "today" cannot honour it.
+  2. The Day 2–4 accruals (0.10 / 0.26 / 0.19) were computed on balances that
+     no longer exist by value date; the capitalised 0.83 mixes stale and
+     current views.
+  Committing v1 as the abandoned approach (see REJECTED.md) before replacing
+  end-of-day with a retroactive re-assessment.
