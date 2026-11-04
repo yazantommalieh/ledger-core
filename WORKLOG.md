@@ -60,3 +60,12 @@ draft of every document in this repo. Entries below say who did what.
   fees for Days 2, 4, 5, all booked in the Day 5 close; restated ACC-001
   history 250 / 225 / 625 / 415 / 390. Verified idempotent (second run books
   nothing). Interest still wrong — 0.81 from stale per-day snapshots. Next.
+- **11:51** — Engine **v3**: dropped the stored per-day accruals. The
+  interest schedule is now a pure function of the ledger as known at a given
+  day (`interest_schedule(acct, upto_day)`), computed on demand; capitalisation
+  books the sum of the rounded daily accruals, so schedule == credit by
+  construction. Per-day report gains "accrued to date (provisional)" and a
+  "restated" block showing which earlier days a close rewrote. Stream result:
+  ACC-001 0.93 (0.10/0.09/0.25/0.17/0.16/0.16), ACC-002 0.008; finals
+  390.93 and 10.008. Noted for AMBIGUITIES: rounding once at the end instead
+  would give 0.92 — the two readings differ by one fils.

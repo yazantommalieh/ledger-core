@@ -1,9 +1,16 @@
 """Replay engine: applies the event stream day by day and runs end-of-day.
 
-v1 — naive: end-of-day looks only at the *current* day's closing balance for
-the overdraft fee, and records that day's interest accrual as computed on
-that day. Kept simple on purpose; the scenario tests will tell us whether it
-survives backdated entries.
+Each day: apply that day's events in stream order, then run the close:
+
+1. overdraft fees — re-assessed for every day up to today against the ledger
+   as known now (backdated entries can turn an already-closed day negative);
+2. on the last day, interest — the daily accrual schedule is derived from the
+   final value-dated history and capitalised as one credit.
+
+Nothing in the engine holds state of its own beyond the reports it emits;
+everything it needs is a query on the ledger. That is deliberate: a cached
+running balance or a stored per-day accrual is exactly the kind of state a
+backdated entry silently invalidates (engine v1 did both — see REJECTED.md).
 """
 from __future__ import annotations
 
@@ -26,7 +33,9 @@ class DayReport:
     day: int
     processed: list[str] = field(default_factory=list)   # one line per event
     fees: list[Entry] = field(default_factory=list)
-    accruals: dict[str, Decimal] = field(default_factory=dict)
+    restated: dict[str, dict[int, tuple[Decimal, Decimal]]] = field(default_factory=dict)
+    accrued_to_date: dict[str, Decimal] = field(default_factory=dict)   # provisional
+    interest_schedule: dict[str, dict[int, tuple[Decimal, Decimal]]] = field(default_factory=dict)
     interest: list[Entry] = field(default_factory=list)
     closing: dict[str, Decimal] = field(default_factory=dict)
     available: dict[str, Decimal] = field(default_factory=dict)
@@ -44,7 +53,6 @@ class Engine:
         self.fee_table = fee_table
         self.rate = rate
         self.reports: list[DayReport] = []
-        self._accruals: dict[str, dict[int, Decimal]] = {a: {} for a in ledger.accounts}
 
     # ----- driver ----------------------------------------------------------
 
@@ -56,10 +64,20 @@ class Engine:
     def run_day(self, day: int) -> DayReport:
         report = DayReport(day)
         errors_before = len(self.ledger.errors)
+        before = {acct: {k: self.ledger.balance(acct, k, as_of_posting_day=day - 1) for k in range(1, day)}
+                  for acct in self.ledger.accounts}
         report.processed = self.run_events(day)
         report.fees = self.end_of_day_fees(day)
-        report.accruals = self.end_of_day_accrual(day)
+        for acct in self.ledger.accounts:
+            after = {k: self.ledger.balance(acct, k, as_of_posting_day=day) for k in range(1, day)}
+            diff = {k: (before[acct][k], after[k]) for k in after if after[k] != before[acct][k]}
+            if diff:
+                report.restated[acct] = diff
+            report.accrued_to_date[acct] = sum(
+                (acc for _, acc in self.interest_schedule(acct, day).values()), zero(self.ledger.currency(acct)))
         if day == self.window_days:
+            for acct in self.ledger.accounts:
+                report.interest_schedule[acct] = self.interest_schedule(acct, day)
             report.interest = self.capitalize_interest(day)
         for acct in self.ledger.accounts:
             report.closing[acct] = self.ledger.balance(acct, day, as_of_posting_day=day)
@@ -206,24 +224,37 @@ class Engine:
                     memo=f"overdraft fee for Day {assessed_day}, assessed in Day {day} close"))
         return booked
 
-    def end_of_day_accrual(self, day: int) -> dict[str, Decimal]:
+    def interest_schedule(self, acct: str, upto_day: int) -> dict[int, tuple[Decimal, Decimal]]:
+        """Day -> (closing balance, rounded accrual), derived from the ledger as
+        known at the end of ``upto_day``. Accrues only on positive balances.
+        Computed on demand, never stored: after a backdated entry the schedule
+        for earlier days changes, and that is the correct behaviour.
+        """
+        ccy = self.ledger.currency(acct)
         out = {}
-        for acct, ccy in self.ledger.accounts.items():
-            bal = self.ledger.balance(acct, day, as_of_posting_day=day)
+        for k in range(1, upto_day + 1):
+            bal = self.ledger.balance(acct, k, as_of_posting_day=upto_day)
             acc = quantize(bal * self.rate, ccy) if bal > 0 else zero(ccy)
-            self._accruals[acct][day] = acc
-            out[acct] = acc
+            out[k] = (bal, acc)
         return out
 
     def capitalize_interest(self, day: int) -> list[Entry]:
+        """Book one INTEREST credit per account equal to the *sum of the rounded
+        daily accruals*. Equality with the schedule is therefore structural,
+        not something that needs a remainder rule (criterion 8 is rejected on
+        exactly this point — there is no remainder to discard).
+
+        The accrual for ``day`` itself is taken on ``day``'s closing balance
+        before this credit lands; the credit has value_date ``day`` and is not
+        considered by the overdraft check, which ran before it.
+        """
         booked = []
         for acct, ccy in self.ledger.accounts.items():
-            total = sum(self._accruals[acct].values(), zero(ccy))
+            schedule = self.interest_schedule(acct, day)
+            total = sum((acc for _, acc in schedule.values()), zero(ccy))
+            assert total == quantize(total, ccy)
             if total:
                 booked.append(self.ledger.append_entry(
                     acct, Kind.INTEREST, total, day, day, None, ref=f"interest:{day}",
                     memo=f"capitalised daily interest Days 1-{day}"))
         return booked
-
-    def accrual_schedule(self, acct: str) -> dict[int, Decimal]:
-        return dict(self._accruals[acct])
