@@ -1,0 +1,226 @@
+# AMBIGUITIES
+
+Every place the brief under-specifies, what the options were, which one the
+code takes, and where. Numbered so REJECTED.md and the code can refer to them.
+
+Legend: **Chose** = what the code does. **Where** = file / function.
+
+---
+
+## 1. Posting day vs value date — are they the same clock?
+
+The event list gives each event a "Day N" *and* a value_date. For most events
+they coincide. For E7 and E9 they don't. The brief never says what "the
+Day 2 closing balance" means once a Day-5 event has value_date Day 2.
+
+Options: (a) ignore value_date and use posting day; (b) use value_date for
+balances and treat posting day as the replay order only; (c) keep both and
+make every balance question explicit about which clock it is asking in.
+
+**Chose (c).** `Ledger.balance(account, value_date_upto, as_of_posting_day)`.
+"Day 2 as the Day 2 close saw it" is `balance(a, 2, as_of_posting_day=2)` =
+250.00. "Day 2 as known at end of Day 5" is `balance(a, 2, as_of_posting_day=5)`
+= −370.00 (before fees). Both are correct answers to different questions;
+criterion 1 asks the second one. **Where:** `ledger/ledger.py`.
+
+## 2. When a backdated entry lands, do already-closed days get re-assessed for fees?
+
+The rule: "assessed once per day per account when that day's closing ledger
+balance (all entries with value_date ≤ that day) is negative."
+
+Options: (a) assess only the current processing day at each close; (b) at
+each close, re-assess every day ≤ today against the ledger as known now.
+
+**Chose (b).** The parenthetical "all entries with value_date ≤ that day" is
+a value-date definition; the only way to honour it after E7 is to re-examine
+Days 2–4 on Day 5. Days are walked ascending so the Day 2 fee is in the Day 3
+balance before Day 3 is judged. Idempotent: a second run books nothing.
+Option (a) is engine v1 (REJECTED.md Part 2A). **Where:**
+`Engine.end_of_day_fees`.
+
+## 3. Fee value_date: "the day assessed" — assessed *for* or assessed *on*?
+
+"Booked with value_date equal to the day assessed." The Day 2 overdraft is
+discovered and the fee booked on Day 5. Is the fee's value_date Day 2 (the
+day that was assessed) or Day 5 (the day the assessment ran)?
+
+**Chose Day 2** (the day being assessed). The fee is a consequence of Day 2's
+balance; dating it Day 2 keeps "that day's closing balance" self-consistent
+(Day 2 ends at −395.00) and is what the phrase most naturally means. The
+posting_day records Day 5 separately, so nothing is lost.
+
+Consequence worth knowing: it does **not** change which days get fees in
+this stream — with value_date Day 5 instead, Days 2, 4 and 5 are still the
+negative ones. It does change the Day 2–4 restated balances and therefore
+the interest schedule by a few fils. **Where:** `Engine.end_of_day_fees`.
+
+## 4. Does the fee itself count toward "that day's closing balance"?
+
+A fee with value_date Day 2 makes Day 2 even more negative. Does that trigger
+another fee? No: "once per day per account" is enforced as a lookup on
+(account, fee value_date), so the fee is a one-way latch. It also means
+the fee does *not* unwind when the day later turns positive — see §10.
+**Where:** `Ledger.fee_for`.
+
+## 5. Order of end-of-day operations
+
+Nothing says whether fees run before interest, or whether the last day's
+accrual sees the capitalised credit.
+
+**Chose:** events → fees → (last day only) interest schedule → capitalisation.
+The Day 6 accrual is taken on the Day 6 closing balance *before* the interest
+credit lands; the credit then posts with value_date Day 6. The overdraft check
+on Day 6 ran before the credit, so interest can never rescue a day from a fee.
+**Where:** `Engine.run_day`, `Engine.capitalize_interest`.
+
+## 6. Is interest recomputed for past days after a backdated entry?
+
+Same question as §2, for accruals. Options: (a) freeze each day's accrual at
+that day's close; (b) derive the whole schedule from the final value-dated
+history.
+
+**Chose (b).** The spec says accruals are "on the closing ledger balance",
+which after E7/E9 means the restated one. (a) was engine v1 and gave a
+capitalised figure (0.81) that blended three different beliefs about Day 2.
+The per-day report still prints an "accrued to date (provisional)" figure
+so a reader can watch it fall on Day 5 and recover on Day 6. **Where:**
+`Engine.interest_schedule`.
+
+## 7. Round daily, or accrue exactly and round once?
+
+0.04% of 415.00 is 0.166. Round each day (→ 0.17) and sum, or sum the exact
+figures (0.918) and round once (→ 0.92)? The two differ by one fils over
+six days.
+
+**Chose round daily, then sum (0.93).** The spec says "amounts stored and
+rounded to their own precision" and "the rounded daily accruals must sum
+exactly to the capitalized total"; both point at daily rounding with the
+total defined as the sum. Round-once is the more common bank convention and
+would be my pick without that wording; it needs a "last day absorbs the
+difference" rule, which the spec does not supply. Criterion 8's "discard the
+remainder" is wrong under either convention. **Where:**
+`Engine.interest_schedule`, `Engine.capitalize_interest`.
+
+## 8. What is the overdraft fee for a BHD account?
+
+The spec gives "AED 25.00". It does not give a BHD fee or an FX rule.
+
+**Chose:** fees are a per-currency table; BHD is absent. If ACC-002 ever
+closes negative the engine books nothing and records a `FEE_NOT_CONFIGURED`
+error rather than converting 25.00 AED at an invented rate or applying 25.000
+BHD (about 6× the value). Never triggered in the stream. **Where:**
+`engine.OVERDRAFT_FEE`, `Engine.end_of_day_fees`.
+
+## 9. A settlement with no authorization (E6)
+
+Not specified by the rules; criterion 4 supplies "reject, no funds move".
+**Chose:** reject with an `ERROR` record. The force-post counter-argument is
+in REJECTED.md (criterion 4 note). **Where:** `Engine._settle`.
+
+## 10. A reversal of an entry that triggered fees (E9 after E7)
+
+Does reversing the cause unwind the fees? The spec does not say; criterion 6
+assumes the answer is yes and that it happens by values "returning".
+
+**Chose:** no automatic unwind. The reversal is a compensating entry for the
+target only. Fees remain. This is the subject of the one failing test and of
+REJECTED.md (criterion 6): the honest version of "yes" is a compensating
+fee-reversal rule, which I did not invent. **Where:** `Engine._reverse`,
+`tests/known_limitation_test.py`.
+
+## 11. Does a reversal re-run authorizations that were declined because of the reversed entry?
+
+Auth-B was declined on Day 5 because E7 had made available −155.00. After E9
+the same request would have been approved. **Chose:** no. An authorization is
+a decision at a moment on the ledger as known then; the merchant received a
+decline. Revisiting it would mean the ledger issuing approvals nobody asked
+for. **Where:** `Engine._authorize`; asserted in `test_scenario.py`
+(`test_declined_auth_is_not_reopened_by_e9`).
+
+## 12. Which instalment absorbs the rounding remainder?
+
+10.000 / 3 leaves 0.001. **Chose:** the last instalment (3.333, 3.333,
+3.334), so the first n−1 are the literal equal quotient and the adjustment is
+in one predictable place. First-instalment is equally valid; the sum is what
+matters. **Where:** `money.split_equal`.
+
+## 13. Are three instalments three entries or one?
+
+**Chose:** three CREDIT entries sharing `origin_event = "E10"`, each with a
+`memo` of `instalment i/3`, same value_date. Consequence: a reversal of E10
+reverses all three (tested). One entry of 10.000 would make "posted as three
+instalments" meaningless.
+
+## 14. Replay "in this order" when the listing is not in day order
+
+The listing has E9 (Day 6) before E10 (Day 5). "Replayed in this order" could
+mean literally (process a Day 6 event, then a Day 5 one) or grouped by day
+with the listing as the tiebreak.
+
+**Chose:** grouped by posting day, listing order within a day (E7, E8, E10 on
+Day 5; E9 on Day 6). Processing a Day 6 event before Day 5 has closed would
+make the Day 5 close include Day 6 knowledge. Outcome is identical here
+because E9 and E10 touch different accounts, but the rule has to be stated.
+**Where:** `Engine.run_events`.
+
+## 15. Are debits ever declined?
+
+Only authorizations have an approval test in the spec. **Chose:** debits
+always post, even into overdraft — they are cleared items, and the overdraft
+fee exists precisely because the balance can go negative. The authorization
+gate is the only place funds are refused. **Where:** `Engine._debit`.
+
+## 16. Settlement for more than the hold
+
+E5 settles 185 against 200. What if it were 215? **Chose:** post it and
+record an `OVER_SETTLEMENT` warning. Card schemes tolerate over-settlement
+within limits (tips, fuel). Rejecting would again put the ledger at odds
+with the money. **Where:** `Engine._settle`; tested.
+
+## 17. Future-dated value dates
+
+None in the stream. **Chose:** the store refuses `value_date > posting_day`
+(`LedgerError`). Allowing them would make "balance as of day d" ambiguous
+(do future-dated entries count toward today?). A real system would accept and
+exclude them; here it is simpler and safer to make them impossible.
+**Where:** `Ledger.append_entry`.
+
+## 18. "Available balance" — which clock?
+
+"ledger balance minus active holds" — but ledger balance as of when?
+**Chose:** value_date ≤ today, as known today, minus holds approved and
+unsettled as of today. It is the authorizer's view at the moment of decision.
+**Where:** `Ledger.available`.
+
+## 19. Does a declined authorization hold anything?
+
+**Chose:** no; it is recorded (with the available-before/after that produced
+the decline) but contributes nothing to held funds. **Where:**
+`Ledger.active_holds`.
+
+## 20. Unsettled holds at window end
+
+Auth-B "is never settled inside the window" — moot, since it was declined.
+Had it been approved it would still be ACTIVE on Day 6 and the report flags
+`UNSETTLED at window end`. No expiry rule is specified; none is implemented.
+
+## 21. Precision of inputs
+
+"Amounts stored and rounded to their own precision." Rounded on input, or
+refused if over-precise? **Chose:** the store refuses an amount that is not
+already at precision (a 3.3333 BHD posting is a bug upstream, not something to
+silently round). Computed amounts (interest, instalments) are quantized by
+the code that computes them. **Where:** `Ledger.append_entry`, `money.quantize`.
+
+## 22. Rounding mode
+
+Not specified. **Chose:** ROUND_HALF_UP (commercial rounding). The scenario
+has one case where it matters against banker's rounding: none, as it happens
+(0.166 → 0.17 either way; no exact .5 ties occur). Stated so it is not
+accidental. **Where:** `money.ROUNDING`; NUMBERS.md.
+
+## 23. Opening balances
+
+Both 0. **Chose:** no opening entry; an empty ledger sums to zero at the
+currency's precision. A non-zero opening balance would be a CREDIT with
+value_date 0. **Where:** `Ledger.__init__`.

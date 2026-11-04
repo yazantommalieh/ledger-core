@@ -90,3 +90,13 @@ draft of every document in this repo. Entries below say who did what.
   annotations explain the other two. Named outside the `test_*.py` pattern so
   the green suite stays green; `make test-known-limitation` runs it red on
   purpose, `make test-all` runs both. Added the Makefile.
+- **11:58** — Documents. REJECTED.md: verdicts on all eight criteria
+  (2, 6, 7, 8 refused; 4 accepted with the force-post counter-argument
+  written down; 5 accepted as a statement with its false premise called out)
+  plus four abandoned approaches (two of them real commits). AMBIGUITIES.md:
+  23 numbered items, each with options / choice / where-in-code. NUMBERS.md:
+  every constant with the half-it check — ran the engine at fee 12.50 and
+  50.00 and at rate 0.0002 and 0.0008 to make sure the claimed figures are
+  real, and caught my own arithmetic slip on the doubled-fee cascade
+  (−305/−355, not −310/−360) by doing so. README rewritten with run
+  instructions, how to read the output, and the final numbers table.
