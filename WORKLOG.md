@@ -29,3 +29,12 @@ draft of every document in this repo. Entries below say who did what.
   remainder on the last instalment. 12 tests green. First place criterion 7
   (3 x 3.334) is contradicted by code: `split_equal(10.000, 3, "BHD")`
   returns 3.333/3.333/3.334.
+- **11:49** — `events.py` (frozen input events, two dates each) and
+  `ledger.py` (append-only store). Design decision that shapes everything
+  after it: no running balances, no mutable hold state. `balance(account,
+  value_date_upto, as_of_posting_day)` is the single primitive — the second
+  argument is what makes "Day 2 as seen on Day 2" and "Day 2 as seen on Day 5"
+  two different, both-correct answers. Hold state is derived (approved auth
+  with no settlement referencing it). Rejections are records too. Future-dated
+  value_dates are refused at the store (none in scope; keeps balance-as-of
+  unambiguous). 27 tests green.
