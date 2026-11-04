@@ -119,7 +119,7 @@ class FeeRules(unittest.TestCase):
     def test_backdated_credit_can_retract_nothing(self):
         # A backdated credit that makes a day positive after a fee was booked does not
         # remove the fee: once-per-day is one way. (Same property as E9 — see the
-        # failing test in test_known_limitation.py for the design question this raises.)
+        # failing test in known_limitation_test.py for the design question this raises.)
         eng = engine([
             Debit("d", 1, "A", amount=D("5.00"), value_date=1),
             Credit("c", 2, "A", amount=D("100.00"), value_date=1),

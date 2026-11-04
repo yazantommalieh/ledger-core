@@ -84,3 +84,9 @@ draft of every document in this repo. Entries below say who did what.
   own day's accrual). Two of my first edge assertions forgot that a 3-day
   mini-window capitalises interest on Day 3 (90.12 vs 90.00) — fixed the
   tests, not the engine; the engine was right. 67 green.
+- **11:54** — The required failing test: `tests/known_limitation_test.py`.
+  It asserts that reversing E7 unwinds the three fees E7 caused and reopens
+  Auth-B. It fails on the first assertion (3 fees still booked) and the
+  annotations explain the other two. Named outside the `test_*.py` pattern so
+  the green suite stays green; `make test-known-limitation` runs it red on
+  purpose, `make test-all` runs both. Added the Makefile.
