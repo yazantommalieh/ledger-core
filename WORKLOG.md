@@ -109,7 +109,7 @@ draft of every document in this repo. Entries below say who did what.
     every close (6 records for a 3-day overdraft, not 3); `capitalize_interest`
     was not idempotent and the schedule changed if asked after capitalisation;
     `_reverse` ignored the event's own account field; `report.py` hard-coded
-    day 6. All fixed in `751bd2d`, each with a pinning test (75 tests now).
+    day 6. All fixed in `0bbc4b9`, each with a pinning test (75 tests now).
   - *Docs contradicting code:* v1's capitalised figure was 0.83, not 0.81 (0.81
     was v2) — REJECTED.md and AMBIGUITIES.md §6 corrected; the "half it" claim
     for AED at 1dp was wrong (accruals coarsen, they don't vanish) — NUMBERS.md
@@ -126,7 +126,16 @@ draft of every document in this repo. Entries below say who did what.
     closing with/without capitalisation, reversing a settlement) — added as
     §24–§29.
   - *This file:* the money-layer entry above is stamped **11:52** but its
-    commit (`2ac8d86`) is 11:47 and the entry after it is stamped 11:49. That
+    commit (`e4ef48b`) is 11:47 and the entry after it is stamped 11:49. That
     stamp was typed by hand instead of read from the clock. Per this file's
     own rule it is not rewritten; this note is the correction, and every stamp
     from the 11:49 entry on came from `date`.
+- **15:42** — Repo copied to Yazan's Mac (`~/Software/ledger-core`). Suite
+  and replay re-run there: green, same numbers. Commits re-authored from the
+  placeholder `yazan@localhost` to Yazan's real email with `git filter-branch`
+  (author/committer email only — every message, diff and timestamp is
+  unchanged; hashes changed, so the six hash references in README, REJECTED
+  and this file were updated to the new ones). Old→new map:
+  5e62585→91a6b59, 2ac8d86→e4ef48b, ce0692e→19257b5, 135e535→91a5570,
+  4bbcb30→98f7a67, 50594de→e2b74ec, 95fa2e5→4ab3c6c, eb45e75→9bf71ed,
+  fff3971→74d2db2, 89c47fe→5c391b7, 751bd2d→0bbc4b9, 778f61c→05c6113.

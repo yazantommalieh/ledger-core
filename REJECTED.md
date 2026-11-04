@@ -137,7 +137,7 @@ entries to the current view.
 A and B were committed and then replaced — both are in the history. C and
 D were rejected before any code was written, so they exist only here.
 
-### A. Current-day-only fee assessment (engine v1, commit `135e535`)
+### A. Current-day-only fee assessment (engine v1, commit `91a5570`)
 
 End-of-day looked at `balance(account, today)` and booked a fee if negative.
 Simple, and it is how a system without value dates would work.
@@ -148,7 +148,7 @@ and 4 are negative by that definition and v1 never looks at them again. It
 produced one fee (Day 5) instead of three and left Day 2 un-fee'd while the
 spec's own criterion 1 insists the Day 2 close is −370.00 "evaluated at end
 of Day 5". Replaced by re-assessing all days ≤ today at every close
-(engine v2, commit `4bbcb30`), which is idempotent thanks to the
+(engine v2, commit `98f7a67`), which is idempotent thanks to the
 once-per-day lookup.
 
 ### B. Per-day stored interest accruals (engine v1, same commit)
@@ -163,7 +163,7 @@ were wrong in the other direction. The capitalised figure was a blend of
 three different views of history: 0.83 in v1, and still 0.81 in v2 after the
 fee fix, against 0.93 from the restated history. Replaced by deriving the
 schedule from the ledger on demand (`Engine.interest_schedule`, engine v3,
-commit `50594de`), which gives 0.93 and is correct by construction.
+commit `e2b74ec`), which gives 0.93 and is correct by construction.
 
 I briefly considered keeping the stored accruals and *booking* each day's
 accrual as a ledger entry, then compensating on restatement. That is a

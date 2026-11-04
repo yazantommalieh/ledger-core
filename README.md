@@ -122,4 +122,4 @@ including the two approaches that were committed and then replaced. The
 first complete version was then audited by a second, independent Claude
 agent that had not seen the build; its findings (one real bypass, four small
 bugs, several doc claims the code contradicted) are fixed in commit
-`751bd2d` and logged in WORKLOG.md.
+`0bbc4b9` and logged in WORKLOG.md.
