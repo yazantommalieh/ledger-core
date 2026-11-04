@@ -69,3 +69,9 @@ draft of every document in this repo. Entries below say who did what.
   ACC-001 0.93 (0.10/0.09/0.25/0.17/0.16/0.16), ACC-002 0.008; finals
   390.93 and 10.008. Noted for AMBIGUITIES: rounding once at the end instead
   would give 0.92 — the two readings differ by one fils.
+- **11:52** — `report.py` + `replay.py`. Per-day block prints: events with
+  outcome, history restated (before -> after per value date), fee assessments
+  with both dates, closing balance (+ available when a hold exists), auth
+  states, errors; Day 6 adds the accrual schedule and capitalisation; a window
+  summary closes. Reading the Day 5 block is the fastest way to see the
+  problem the assignment is really about.
