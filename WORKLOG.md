@@ -23,3 +23,9 @@ draft of every document in this repo. Entries below say who did what.
   the end.
 - **11:46** — Repo scaffolded (`git init`, `.gitignore`, README stub, this
   file).
+- **11:52** — `ledger/money.py` + tests. Decisions taken here: Decimal only,
+  ROUND_HALF_UP, precision table is a hard lookup (unknown currency raises
+  rather than defaulting to 2dp), instalment split rounds down and puts the
+  remainder on the last instalment. 12 tests green. First place criterion 7
+  (3 x 3.334) is contradicted by code: `split_equal(10.000, 3, "BHD")`
+  returns 3.333/3.333/3.334.
