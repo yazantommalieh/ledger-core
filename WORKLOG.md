@@ -53,3 +53,10 @@ draft of every document in this repo. Entries below say who did what.
      current views.
   Committing v1 as the abandoned approach (see REJECTED.md) before replacing
   end-of-day with a retroactive re-assessment.
+- **11:51** — Engine **v2**: end-of-day re-assesses the overdraft fee for
+  every day 1..today against the ledger as known today; fee value_date = the
+  day being assessed, posting_day = today. Walked ascending so the Day 2 fee is
+  in the Day 3 balance (Day 3 ends at +5.00, no fee). Result on the stream:
+  fees for Days 2, 4, 5, all booked in the Day 5 close; restated ACC-001
+  history 250 / 225 / 625 / 415 / 390. Verified idempotent (second run books
+  nothing). Interest still wrong — 0.81 from stale per-day snapshots. Next.

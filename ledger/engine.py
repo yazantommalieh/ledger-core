@@ -174,19 +174,36 @@ class Engine:
     # ----- end of day -----------------------------------------------------------
 
     def end_of_day_fees(self, day: int) -> list[Entry]:
+        """Re-assess the overdraft fee for every day up to and including today.
+
+        A backdated entry can turn an earlier day's close negative after that
+        day has already been closed. The rule is defined on "that day's closing
+        ledger balance (all entries with value_date <= that day)", so the only
+        faithful implementation is to re-evaluate every past day against the
+        ledger as known *now* and book the fee for any day that is negative and
+        not yet fee'd. Days are walked in ascending order so a fee booked for
+        Day 2 (value_date 2) is already in the balance when Day 3 is examined —
+        the cascade is real and intended.
+
+        Once-per-day-per-account is the ``fee_for`` lookup, which makes the
+        whole routine idempotent: running it twice books nothing new.
+        """
         booked = []
-        for acct, ccy in self.ledger.accounts.items():
-            if self.ledger.fee_for(acct, day) is not None:
-                continue
-            if self.ledger.balance(acct, day, as_of_posting_day=day) < 0:
+        for assessed_day in range(1, day + 1):
+            for acct, ccy in self.ledger.accounts.items():
+                if self.ledger.fee_for(acct, assessed_day) is not None:
+                    continue
+                if self.ledger.balance(acct, assessed_day, as_of_posting_day=day) >= 0:
+                    continue
                 fee = self.fee_table.get(ccy)
                 if fee is None:
                     self.ledger.append_error(day, f"EOD-{day}", "FEE_NOT_CONFIGURED",
-                                             f"{acct} overdrawn on Day {day} but no {ccy} fee configured")
+                                             f"{acct} overdrawn on Day {assessed_day} but no {ccy} fee configured")
                     continue
                 booked.append(self.ledger.append_entry(
-                    acct, Kind.FEE, -fee, day, day, None, ref=f"overdraft:{day}",
-                    memo=f"overdraft fee for Day {day}"))
+                    acct, Kind.FEE, -fee, value_date=assessed_day, posting_day=day,
+                    origin_event=None, ref=f"overdraft:{assessed_day}",
+                    memo=f"overdraft fee for Day {assessed_day}, assessed in Day {day} close"))
         return booked
 
     def end_of_day_accrual(self, day: int) -> dict[str, Decimal]:
