@@ -100,3 +100,33 @@ draft of every document in this repo. Entries below say who did what.
   real, and caught my own arithmetic slip on the doubled-fee cascade
   (−305/−355, not −310/−360) by doing so. README rewritten with run
   instructions, how to read the output, and the final numbers table.
+- **12:25** — **Independent review.** Claude spawned a second, separate
+  agent that had not seen the build, with the spec and the instruction to
+  recompute the stream by hand and audit the docs against the code. Its hand
+  calculation matched the program exactly. It found:
+  - *Code:* credits bypassed the precision check (routed through
+    `split_equal`, which rounds); `FEE_NOT_CONFIGURED` was re-reported at
+    every close (6 records for a 3-day overdraft, not 3); `capitalize_interest`
+    was not idempotent and the schedule changed if asked after capitalisation;
+    `_reverse` ignored the event's own account field; `report.py` hard-coded
+    day 6. All fixed in `751bd2d`, each with a pinning test (75 tests now).
+  - *Docs contradicting code:* v1's capitalised figure was 0.83, not 0.81 (0.81
+    was v2) — REJECTED.md and AMBIGUITIES.md §6 corrected; the "half it" claim
+    for AED at 1dp was wrong (accruals coarsen, they don't vanish) — NUMBERS.md
+    corrected; REJECTED.md Part 2 said all four abandoned approaches were
+    commits when only A and B are; §22 was garbled; the failing test's
+    annotated "unwound" balance was 465.93 and is 466.03 (verified by running
+    with fees disabled).
+  - *Criterion 6 framing:* the reviewer argued, correctly, that "contradicts
+    append-only" overclaims — compensating fee reversals are append-only and
+    would satisfy the criterion's intent. Reworded to "not implemented; needs
+    an unstated rule", which is also what the failing test says.
+  - *Six ambiguities missed* (instalment value dates, reversal value date
+    rule, partial-settlement residual, which clock decides an auth, Day 6
+    closing with/without capitalisation, reversing a settlement) — added as
+    §24–§29.
+  - *This file:* the money-layer entry above is stamped **11:52** but its
+    commit (`2ac8d86`) is 11:47 and the entry after it is stamped 11:49. That
+    stamp was typed by hand instead of read from the clock. Per this file's
+    own rule it is not rewritten; this note is the correction, and every stamp
+    from the 11:49 entry on came from `date`.

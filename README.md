@@ -10,7 +10,7 @@ Python 3.10+, standard library only (`decimal`, `dataclasses`, `unittest`).
 
 ```
 python3 replay.py              # replay the six-day event stream, print the per-day report
-make test                      # the green suite (67 tests)
+make test                      # the green suite (75 tests)
 make test-known-limitation     # the one test that FAILS BY DESIGN
 make test-all                  # both, in that order
 ```
@@ -78,7 +78,7 @@ tests/
   test_money.py, test_ledger.py, test_engine_edges.py, test_scenario.py
   known_limitation_test.py        <- the deliberately failing test
 NUMBERS.md      every constant, why that value, what "half it" would do
-AMBIGUITIES.md  23 under-specified points and how each was resolved
+AMBIGUITIES.md  29 under-specified points and how each was resolved
 REJECTED.md     the 4 acceptance criteria refused (and why), and 4 abandoned approaches
 WORKLOG.md      timestamped log of the build; the commit history is the other half
 ```
@@ -118,4 +118,8 @@ REJECTED.md; each verdict is a test in `tests/test_scenario.py`.
 
 With Claude (Anthropic) as pair-programmer, as the brief allows. WORKLOG.md
 says who did what and when; the commit history is intact and unsquashed,
-including the two approaches that were committed and then replaced.
+including the two approaches that were committed and then replaced. The
+first complete version was then audited by a second, independent Claude
+agent that had not seen the build; its findings (one real bypass, four small
+bugs, several doc claims the code contradicted) are fixed in commit
+`751bd2d` and logged in WORKLOG.md.

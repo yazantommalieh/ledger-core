@@ -52,7 +52,11 @@ posting_day records Day 5 separately, so nothing is lost.
 Consequence worth knowing: it does **not** change which days get fees in
 this stream — with value_date Day 5 instead, Days 2, 4 and 5 are still the
 negative ones. It does change the Day 2–4 restated balances and therefore
-the interest schedule by a few fils. **Where:** `Engine.end_of_day_fees`.
+the interest schedule by a few fils. One coupling to be aware of: the
+once-per-day latch is keyed on the fee's `ref` (`overdraft:<day>`), not its
+value_date, precisely so that the alternative reading would still latch the
+right day (a Day-2 fee value-dated Day 5 must not block the Day-5 fee).
+**Where:** `Engine.end_of_day_fees`, `Ledger.fee_for`.
 
 ## 4. Does the fee itself count toward "that day's closing balance"?
 
@@ -81,7 +85,8 @@ history.
 
 **Chose (b).** The spec says accruals are "on the closing ledger balance",
 which after E7/E9 means the restated one. (a) was engine v1 and gave a
-capitalised figure (0.81) that blended three different beliefs about Day 2.
+capitalised figure (0.83; 0.81 in v2 once fees were right) that blended three
+different beliefs about Day 2.
 The per-day report still prints an "accrued to date (provisional)" figure
 so a reader can watch it fall on Day 5 and recover on Day 6. **Where:**
 `Engine.interest_schedule`.
@@ -207,20 +212,87 @@ Had it been approved it would still be ACTIVE on Day 6 and the report flags
 ## 21. Precision of inputs
 
 "Amounts stored and rounded to their own precision." Rounded on input, or
-refused if over-precise? **Chose:** the store refuses an amount that is not
-already at precision (a 3.3333 BHD posting is a bug upstream, not something to
-silently round). Computed amounts (interest, instalments) are quantized by
-the code that computes them. **Where:** `Ledger.append_entry`, `money.quantize`.
+refused if over-precise? **Chose:** refused. Every monetary amount on an
+input event (credit, debit, hold, settlement) is checked in `Engine.apply`
+before anything else happens, and the store checks entries again. A 3.3333
+BHD posting is a bug upstream, not something to silently round. Computed
+amounts (interest, instalments) are quantized by the code that computes them.
+*Review note:* the first version checked only at the store, which credits
+bypassed because `split_equal` quantizes before posting; caught by the
+independent review, fixed, tested. **Where:** `Engine.apply`,
+`Ledger.append_entry`, `money.quantize`.
 
 ## 22. Rounding mode
 
-Not specified. **Chose:** ROUND_HALF_UP (commercial rounding). The scenario
-has one case where it matters against banker's rounding: none, as it happens
-(0.166 → 0.17 either way; no exact .5 ties occur). Stated so it is not
-accidental. **Where:** `money.ROUNDING`; NUMBERS.md.
+Not specified. **Chose:** ROUND_HALF_UP (commercial rounding). In this
+stream no exact .5 tie occurs at the rounding digit (0.166 → 0.17 under both
+half-up and banker's), so the choice is invisible here and would only show
+up with other figures (e.g. at half the rate, NUMBERS.md). Stated so it is
+not accidental. **Where:** `money.ROUNDING`; NUMBERS.md.
 
 ## 23. Opening balances
 
 Both 0. **Chose:** no opening entry; an empty ledger sums to zero at the
 currency's precision. A non-zero opening balance would be a CREDIT with
 value_date 0. **Where:** `Ledger.__init__`.
+
+---
+
+The six below were raised by the independent review of the first complete
+version (WORKLOG.md). §24–§27 are decisions the code had already taken
+without saying so; §28 is a reading question; §29 is a design gap.
+
+## 24. Three instalments — same value date, or spread over days?
+
+"Posted as three equal instalments — value_date Day 5." Read as three
+postings all value-dated Day 5. The other reading (Day 5 / Day 6 / Day 7)
+would put the third instalment outside the window and leave ACC-002 at
+≈ 6.670 with 0.004 interest. **Chose** same value date: the event states one
+value_date, and an instalment *plan* would need a schedule the brief does not
+give. **Where:** `Engine._credit`.
+
+## 25. A reversal's value date must equal its target's
+
+E9 states value_date Day 2, which is E7's. The engine *requires* that
+equality and rejects a reversal with any other value_date
+(`VALUE_DATE_MISMATCH`). The alternative — a reversal value-dated on its own
+posting day (Day 6) — would leave Days 2–5 restated negative and change the
+fee and interest picture entirely. A reversal that does not undo the original
+by value date is a new transaction, not a reversal. **Where:**
+`Engine._reverse`; tested.
+
+## 26. Partial settlement: what happens to the unsettled 15.00?
+
+E5 settles 185 against a 200 hold. **Chose:** the whole hold is released;
+the auth is SETTLED and no longer active. The 15.00 does not stay held.
+That matches single-clearing card behaviour (the clearing message closes the
+authorization); multi-clearing (partial captures) would need the hold to
+track a remaining amount, which is a different design. No effect on this
+stream. **Where:** `Ledger.active_holds`, `Ledger.settlement_of`.
+
+## 27. Which clock decides an authorization?
+
+Holds are tested against the ledger as known on the *posting day* of the
+authorization; `AuthRecord.value_date` is recorded but does not enter the
+decision. A backdated authorization (none in the stream) would therefore be
+decided on today's view, not on the balance as of its value date. **Chose**
+that deliberately: an authorization is a question asked *now*; its value date
+is bookkeeping. **Where:** `Engine._authorize`, `Ledger.available`.
+
+## 28. Is the Day 6 closing balance 390.00 or 390.93?
+
+Capitalisation happens "at end of Day 6" with value_date Day 6, so the Day 6
+close *includes* it: 390.93. The pre-capitalisation figure (390.00) is the
+one the Day 6 accrual is computed on and is visible in the schedule. Both are
+printed. **Where:** `Engine.run_day`, `report.py`.
+
+## 29. Reversing a settlement
+
+Not in the stream. **Chose:** the reversal returns the funds (a +amount
+REVERSAL entry) but does **not** reinstate the hold — the authorization stays
+SETTLED and consumed, and a merchant who wants to charge again needs a new
+authorization. This is pinned by a test so it cannot drift silently
+(`test_reversed_settlement_returns_funds_but_does_not_reinstate_the_hold`).
+A design that re-activates the hold would need `settlement_of` to ignore
+reversed settlements; I did not want a reversal to silently create a live
+hold. **Where:** `Ledger.settlement_of`.

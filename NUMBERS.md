@@ -33,9 +33,10 @@ choose. The table is a hard lookup — an unlisted currency raises
 on a 3dp currency loses one digit on every posting and nothing would ever
 flag it.
 
-**Half it:** BHD at 1dp or AED at 1dp would make 3.333 unrepresentable and
-every interest accrual in the window would round to zero. Doubling is
-subtler: AED at 4dp would make 0.166 "exact", the accruals would sum to
+**Half it:** AED at 1dp would coarsen every accrual (0.10 → 0.1, 0.25 →
+0.3, 0.17 → 0.2) and the 0.93 total would drift to 1.1 — survivable but
+wrong. BHD at 1dp is worse: 3.333 becomes unrepresentable and the 0.004 daily
+accrual rounds to 0.0, so the account earns nothing. Doubling is subtler: AED at 4dp would make 0.166 "exact", the accruals would sum to
 0.9180 instead of 0.93, and the ledger would carry sub-fils amounts no bank
 can pay out. The precision table is the one place where "more" is as wrong as
 "less".

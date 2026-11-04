@@ -52,8 +52,10 @@ for Day 5, not Day 2, and it violates the rule's value-date definition.
 
 ### Criterion 6 — "After E9, all balances and fees return to their pre-E7 values"
 
-**Rejected.** It contradicts the non-negotiable append-only rule and the
-once-per-day fee rule.
+**Rejected as stated.** "Return to their pre-E7 values" describes a
+mutation; in an append-only log nothing returns, things are compensated. The
+criterion's intent is reachable (see below) but only through a rule the spec
+does not state, and the mechanism it names is not available.
 
 E9 is a reversal, which in an append-only ledger means a *compensating entry*:
 +620.00 with value_date Day 2, posted Day 6. E7 is not removed. After E9:
@@ -68,14 +70,20 @@ E9 is a reversal, which in an append-only ledger means a *compensating entry*:
   the ledger as known then; a later reversal does not re-run them.
 - **Interest changes**, because it accrues on the restated balances.
 
-Could the design reverse the fees too? Yes, by booking compensating
-FEE_REVERSAL entries — but that is a new rule, not something the spec provides,
-and even then nothing "returns": the log would hold three fees and three
-reversals. I chose not to invent that rule inside the ledger core, and the
-one deliberately failing test (`tests/known_limitation_test.py`) documents
-exactly this gap. The criterion's *intent* (a reversed error should not cost
-the customer AED 75.00) is right; its *mechanism* ("values return") is not
-available in an append-only system.
+Could the design reverse the fees too? Yes. The fee rule is a predicate on
+value-dated closing balances, and after E9 that predicate is false for Days 2,
+4 and 5. The engine already re-assesses past days in one direction (book a
+fee when a day turns negative); the symmetric direction (book a compensating
+FEE_REVERSAL when a fee'd day turns positive) is perfectly append-only, and
+after it every value-dated *balance* would match pre-E7 and net fees would
+be zero. So the criterion is **satisfiable in intent**. What it is not is
+*specified*: the brief gives no fee-reversal rule, and whether such reversals
+are automatic or an ops decision is a product question I should not settle
+inside a ledger core. I did not implement it, and the one deliberately failing
+test (`tests/known_limitation_test.py`) exists to make that gap loud rather
+than quiet. Honest summary: *not implemented, needs an unstated rule* — not
+*impossible*. Auth-B's decline would still stand either way (§11 of
+AMBIGUITIES.md).
 
 ### Criterion 7 — "The three BHD instalments in E10 must each be BHD 3.334"
 
@@ -126,7 +134,8 @@ entries to the current view.
 
 ## Part 2 — Approaches abandoned mid-build
 
-Each of these is a real commit in the history.
+A and B were committed and then replaced — both are in the history. C and
+D were rejected before any code was written, so they exist only here.
 
 ### A. Current-day-only fee assessment (engine v1, commit `135e535`)
 
@@ -150,8 +159,9 @@ in a dict; Day 6 summed the dict.
 Abandoned because a stored accrual is a cached derivative of a balance that a
 backdated entry can change. After E7 the stored Day 2–4 accruals (0.10, 0.26,
 0.19) described balances that no longer existed by value date; after E9 they
-were wrong in the other direction. The capitalised figure (0.81) was a
-blend of three different views of history. Replaced by deriving the
+were wrong in the other direction. The capitalised figure was a blend of
+three different views of history: 0.83 in v1, and still 0.81 in v2 after the
+fee fix, against 0.93 from the restated history. Replaced by deriving the
 schedule from the ledger on demand (`Engine.interest_schedule`, engine v3,
 commit `50594de`), which gives 0.93 and is correct by construction.
 
