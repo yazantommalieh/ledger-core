@@ -57,7 +57,7 @@ def render_day(r: DayReport, ledger: Ledger) -> str:
                 detail += f", settled {fmt(-s.amount, s.currency)} on Day {s.posting_day}"
             elif state == "DECLINED":
                 detail += f", declined Day {a.posting_day} (available {a.available_before} -> {a.available_after})"
-            elif state == "ACTIVE" and r.day == 6:
+            elif state == "ACTIVE" and r.is_last:
                 detail += ", UNSETTLED at window end"
             out.append(f"  {auth_id}: {state} ({detail})")
     else:

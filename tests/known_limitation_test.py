@@ -46,8 +46,9 @@ class ReversalShouldUnwindWhatItCaused(unittest.TestCase):
         fees = lg.entries_of_kind(Kind.FEE, "ACC-001")
         self.assertEqual(len(fees), 0, f"fees still booked for days {[f.value_date for f in fees]}")
 
-        # 2) WHAT FAILS: the customer is AED 75.00 poorer than the transactions
-        #    alone justify (390.93 vs 465.93).
+        # 2) WHAT FAILS: the customer is AED 75.10 poorer than the transactions
+        #    alone justify (390.93 vs 466.03 — the extra 0.10 is the interest the
+        #    75.00 would have earned: schedule 0.10/0.10/0.26/0.19/0.19/0.19 = 1.03).
         #    WHAT IT REVEALS: in an append-only ledger the only honest fix is a
         #    compensating FEE_REVERSAL entry per fee, booked when a re-assessment
         #    finds an existing fee whose day is no longer negative. That needs
@@ -57,7 +58,7 @@ class ReversalShouldUnwindWhatItCaused(unittest.TestCase):
         #    thing that makes criterion 6 *almost* right: the intent (undo the
         #    damage) is sound; the mechanism ("values return") is not available
         #    in an append-only log.
-        self.assertEqual(lg.balance("ACC-001", 6), D("465.93"))
+        self.assertEqual(lg.balance("ACC-001", 6), D("466.03"))
 
         # 3) WHAT FAILS: Auth-B stays DECLINED although, by value date, there
         #    was AED 465.00 available when it was asked.

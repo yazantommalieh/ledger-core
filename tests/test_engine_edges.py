@@ -151,3 +151,71 @@ class InterestRules(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FoundByReview(unittest.TestCase):
+    """Each of these pins a fix for something an independent review of the first
+    complete version turned up (WORKLOG.md, 2026-11-04 afternoon)."""
+
+    def test_over_precise_credit_is_refused_not_rounded(self):
+        from ledger.ledger import LedgerError
+        eng = engine([Credit("c", 1, "A", amount=D("1.005"), value_date=1)], days=1)
+        with self.assertRaises(LedgerError):
+            eng.run()
+
+    def test_over_precise_hold_is_refused(self):
+        from ledger.ledger import LedgerError
+        eng = engine([Authorization("a", 1, "A", auth_id="X", amount=D("0.001"), value_date=1)], days=1)
+        with self.assertRaises(LedgerError):
+            eng.run()
+
+    def test_unconfigured_fee_error_is_once_per_day_not_once_per_close(self):
+        eng = engine([Debit("d", 1, "B", amount=D("1.000"), value_date=1)], days=3)
+        eng.run()
+        codes = [e.code for e in eng.ledger.errors]
+        self.assertEqual(codes, ["FEE_NOT_CONFIGURED"] * 3)      # Days 1, 2, 3 — not 1+2+3 = 6
+        self.assertEqual(len({e.event_id for e in eng.ledger.errors}), 3)
+
+    def test_capitalisation_is_idempotent(self):
+        eng = engine([Credit("c", 1, "A", amount=D("1000.00"), value_date=1)], days=1)
+        eng.run()
+        self.assertEqual(eng.capitalize_interest(1), [])
+        self.assertEqual(len(eng.ledger.entries_of_kind(Kind.INTEREST)), 1)
+
+    def test_schedule_is_the_same_before_and_after_capitalisation(self):
+        eng = engine([Credit("c", 1, "A", amount=D("1000.00"), value_date=1)], days=1)
+        eng.run_events(1)
+        eng.end_of_day_fees(1)
+        before = eng.interest_schedule("A", 1)
+        eng.capitalize_interest(1)
+        self.assertEqual(eng.interest_schedule("A", 1), before)
+        self.assertEqual(before[1], (D("1000.00"), D("0.40")))
+
+    def test_reversal_naming_the_wrong_account_is_rejected(self):
+        eng = engine([
+            Credit("c", 1, "A", amount=D("5.00"), value_date=1),
+            Reversal("r", 2, "B", target_event_id="c", value_date=1),
+        ])
+        eng.run()
+        self.assertEqual([e.code for e in eng.ledger.errors], ["ACCOUNT_MISMATCH"])
+        self.assertEqual(eng.ledger.reversals_of("c"), ())
+
+    def test_reversed_settlement_returns_funds_but_does_not_reinstate_the_hold(self):
+        # Documented design gap, pinned so it cannot change silently (AMBIGUITIES.md §29).
+        eng = engine([
+            Credit("c", 1, "A", amount=D("100.00"), value_date=1),
+            Authorization("a", 1, "A", auth_id="X", amount=D("10.00"), value_date=1),
+            Settlement("s", 2, "A", auth_id="X", amount=D("10.00"), value_date=2),
+            Reversal("r", 3, "A", target_event_id="s", value_date=2),
+        ])
+        eng.run()
+        self.assertEqual(eng.ledger.balance("A", 2), D("100.00"))
+        self.assertEqual(eng.ledger.auth_state("X"), "SETTLED")
+        self.assertEqual(eng.ledger.held("A"), D("0.00"))
+
+    def test_window_end_flag_follows_window_length(self):
+        eng = engine([Credit("c", 1, "A", amount=D("100.00"), value_date=1),
+                      Authorization("a", 1, "A", auth_id="X", amount=D("10.00"), value_date=1)], days=2)
+        eng.run()
+        self.assertFalse(eng.reports[0].is_last)
+        self.assertTrue(eng.reports[1].is_last)

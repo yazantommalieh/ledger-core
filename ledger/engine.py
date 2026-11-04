@@ -18,8 +18,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 from .events import Authorization, Credit, Debit, Event, Reversal, Settlement
-from .ledger import Decision, Entry, Kind, Ledger, Severity
-from .money import quantize, split_equal, zero
+from .ledger import Decision, Entry, Kind, Ledger, LedgerError, Severity
+from .money import is_exact, quantize, split_equal, zero
 
 # Overdraft fee per currency. Only AED is specified by the assignment.
 OVERDRAFT_FEE: dict[str, Decimal] = {"AED": Decimal("25.00")}
@@ -31,6 +31,7 @@ DAILY_INTEREST_RATE = Decimal("0.0004")
 @dataclass
 class DayReport:
     day: int
+    is_last: bool = False
     processed: list[str] = field(default_factory=list)   # one line per event
     fees: list[Entry] = field(default_factory=list)
     restated: dict[str, dict[int, tuple[Decimal, Decimal]]] = field(default_factory=dict)
@@ -62,7 +63,7 @@ class Engine:
         return self.reports
 
     def run_day(self, day: int) -> DayReport:
-        report = DayReport(day)
+        report = DayReport(day, is_last=(day == self.window_days))
         errors_before = len(self.ledger.errors)
         before = {acct: {k: self.ledger.balance(acct, k, as_of_posting_day=day - 1) for k in range(1, day)}
                   for acct in self.ledger.accounts}
@@ -97,6 +98,14 @@ class Engine:
     # ----- event application --------------------------------------------------
 
     def apply(self, ev: Event) -> str:
+        # Every monetary amount on an input event must already be at the account's
+        # precision. Over-precise input is an upstream bug, not something to round
+        # quietly (AMBIGUITIES.md §21). Checked here, once, for all event types —
+        # the store checks entries too, but holds are not entries, and credits
+        # pass through split_equal, which would otherwise round for them.
+        amount = getattr(ev, "amount", None)
+        if amount is not None and not is_exact(amount, self.ledger.currency(ev.account)):
+            raise LedgerError(f"{ev.id}: {amount} is not at {self.ledger.currency(ev.account)} precision")
         if isinstance(ev, Credit):
             return self._credit(ev)
         if isinstance(ev, Debit):
@@ -176,6 +185,11 @@ class Engine:
             self.ledger.append_error(ev.posting_day, ev.id, "ALREADY_REVERSED",
                                      f"{ev.target_event_id} already reversed; rejected")
             return f"{ev.id} REVERSAL of {ev.target_event_id} -> REJECTED (already reversed)"
+        if any(t.account != ev.account for t in targets):
+            self.ledger.append_error(ev.posting_day, ev.id, "ACCOUNT_MISMATCH",
+                                     f"reversal names {ev.account} but {ev.target_event_id} posted to "
+                                     f"{targets[0].account}; rejected")
+            return f"{ev.id} REVERSAL of {ev.target_event_id} -> REJECTED (account mismatch)"
         if any(t.value_date != ev.value_date for t in targets):
             self.ledger.append_error(ev.posting_day, ev.id, "VALUE_DATE_MISMATCH",
                                      f"reversal value_date {ev.value_date} != target's; rejected")
@@ -215,8 +229,12 @@ class Engine:
                     continue
                 fee = self.fee_table.get(ccy)
                 if fee is None:
-                    self.ledger.append_error(day, f"EOD-{day}", "FEE_NOT_CONFIGURED",
-                                             f"{acct} overdrawn on Day {assessed_day} but no {ccy} fee configured")
+                    # Once per (account, assessed day), like the fee it stands in for;
+                    # otherwise every later close re-reports the same overdraft.
+                    marker = f"FEE:{acct}:D{assessed_day}"
+                    if not any(e.event_id == marker for e in self.ledger.errors):
+                        self.ledger.append_error(day, marker, "FEE_NOT_CONFIGURED",
+                                                 f"{acct} overdrawn on Day {assessed_day} but no {ccy} fee configured")
                     continue
                 booked.append(self.ledger.append_entry(
                     acct, Kind.FEE, -fee, value_date=assessed_day, posting_day=day,
@@ -234,6 +252,14 @@ class Engine:
         out = {}
         for k in range(1, upto_day + 1):
             bal = self.ledger.balance(acct, k, as_of_posting_day=upto_day)
+            # Day k's accrual is on day k's close *before* any interest capitalised
+            # on day k: that credit is the result of the schedule, not an input to
+            # it. Subtracting it here makes the schedule stable whether it is asked
+            # for before or after capitalisation. Interest capitalised on an earlier
+            # day is ordinary balance and does earn (there is none in this window).
+            for e in self.ledger.entries_of_kind(Kind.INTEREST, acct):
+                if e.value_date == k and e.posting_day <= upto_day:
+                    bal -= e.amount
             acc = quantize(bal * self.rate, ccy) if bal > 0 else zero(ccy)
             out[k] = (bal, acc)
         return out
@@ -250,6 +276,8 @@ class Engine:
         """
         booked = []
         for acct, ccy in self.ledger.accounts.items():
+            if any(e.ref == f"interest:{day}" for e in self.ledger.entries_of_kind(Kind.INTEREST, acct)):
+                continue  # already capitalised for this day: idempotent, like the fee run
             schedule = self.interest_schedule(acct, day)
             total = sum((acc for _, acc in schedule.values()), zero(ccy))
             assert total == quantize(total, ccy)

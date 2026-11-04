@@ -250,10 +250,14 @@ class Ledger:
     # ----- fees / interest -----------------------------------------------------
 
     def fee_for(self, account: str, day: int) -> Entry | None:
-        """The overdraft fee assessed *for* ``day`` (its value_date), if any.
-        'Once per day per account' is enforced by this lookup."""
+        """The overdraft fee assessed *for* ``day``, if any. 'Once per day per
+        account' is enforced by this lookup. Keyed on the fee's ``ref``
+        (``overdraft:<day>``) rather than its value_date, so the latch stays
+        correct even under the alternative reading where a fee is value-dated on
+        the day the assessment ran (AMBIGUITIES.md §3)."""
+        marker = f"overdraft:{day}"
         for e in self._entries:
-            if e.account == account and e.kind is Kind.FEE and e.value_date == day:
+            if e.account == account and e.kind is Kind.FEE and e.ref == marker:
                 return e
         return None
 
