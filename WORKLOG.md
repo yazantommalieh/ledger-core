@@ -200,3 +200,11 @@ draft of every document in this repo. Entries below say who did what.
   grouping kept. 2 pages at 9.2pt body / 8.3pt tables. `docs/render.js` is
   the Chromium render script (`node docs/render.js` from `docs/`). The
   4-page version is in history (previous commit) if the panel prefers air.
+- **21:43** — Scope and voice pass on Part 2, at Yazan's request. Scope: §3 now
+  separates the five endings that exist in the model from the four that
+  production needs and the model lacks; the "second control" sentence is
+  gone (the brief asks for one); the EU PSD2 aside is gone (the brief says
+  UAE). Voice: rewritten to match how Yazan writes — short plain sentences,
+  first person, label-then-fact, no metaphors ("rewrites history",
+  "earns its keep" and similar are out). Summary line dropped to keep two
+  pages; its content moved into the intro. 2 pages, ~1,520 words.
