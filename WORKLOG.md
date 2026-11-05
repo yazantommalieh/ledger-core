@@ -184,3 +184,8 @@ draft of every document in this repo. Entries below say who did what.
   is cited. Source is `docs/architecture.html`, rendered with Chromium to
   `docs/architecture.pdf` (4 pages). The one control chosen: a backdating
   horizon with maker-checker.
+- **21:24** — Yazan: "short and simple". Part 2 rewritten from 4 pages / 2,670
+  words of dense tables to 2 pages / 1,600 words of plain bullets. Same four
+  sections, same control, same nine authorization endings, same sixteen cuts;
+  the sensitivity material and the Islamic-window note folded into single
+  lines. Re-rendered to `docs/architecture.pdf`.
