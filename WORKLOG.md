@@ -194,3 +194,9 @@ draft of every document in this repo. Entries below say who did what.
   key answers (cheapest fix, the one control) as callouts, §3 and §4 as
   tables with the "today" behaviour as a grey sub-line and §4 grouped into
   storage / money / fees / authorizations / time / input. 4 pages.
+- **21:34** — Yazan: can it be 2 pages? Yes, by cutting words not items: every
+  cell trimmed to a phrase, §4 as a two-column list, the PSD2 point folded
+  into the complaints row, references moved to the page footer. Styling and
+  grouping kept. 2 pages at 9.2pt body / 8.3pt tables. `docs/render.js` is
+  the Chromium render script (`node docs/render.js` from `docs/`). The
+  4-page version is in history (previous commit) if the panel prefers air.
