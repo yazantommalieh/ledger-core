@@ -81,6 +81,9 @@ NUMBERS.md      every constant, why that value, what "half it" would do
 AMBIGUITIES.md  31 under-specified points, each resolved; closes with what each choice is worth in fils
 REJECTED.md     the 4 acceptance criteria refused (and why), and 4 abandoned approaches
 WORKLOG.md      timestamped log of the build; the commit history is the other half
+docs/
+  architecture.pdf    Part 2 — Architecture & Trade-offs (2 pages)
+  architecture.html   its source; `node render.js` from docs/ re-renders the PDF (Playwright + Chromium)
 ```
 
 ## The one idea
