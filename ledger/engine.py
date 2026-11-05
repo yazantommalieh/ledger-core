@@ -54,6 +54,7 @@ class Engine:
         self.fee_table = fee_table
         self.rate = rate
         self.reports: list[DayReport] = []
+        self._seen_event_ids: set[str] = set()
 
     # ----- driver ----------------------------------------------------------
 
@@ -106,6 +107,14 @@ class Engine:
         amount = getattr(ev, "amount", None)
         if amount is not None and not is_exact(amount, self.ledger.currency(ev.account)):
             raise LedgerError(f"{ev.id}: {amount} is not at {self.ledger.currency(ev.account)} precision")
+        # Amounts are magnitudes; direction comes from the event type. A negative
+        # credit is a debit in disguise and a zero posting is noise, so both are
+        # structural errors in the stream, like a duplicate event id.
+        if amount is not None and amount <= 0:
+            raise LedgerError(f"{ev.id}: amount must be positive, got {amount}")
+        if ev.id in self._seen_event_ids:
+            raise LedgerError(f"duplicate event id {ev.id}")
+        self._seen_event_ids.add(ev.id)
         if isinstance(ev, Credit):
             return self._credit(ev)
         if isinstance(ev, Debit):
@@ -156,6 +165,11 @@ class Engine:
                                      f"settlement of {ev.auth_id} for {ev.amount}: {why}; "
                                      f"rejected, no funds moved")
             return f"{ev.id} SETTLEMENT {ev.auth_id} {ev.amount} -> REJECTED ({why})"
+        if auth.account != ev.account:
+            self.ledger.append_error(ev.posting_day, ev.id, "ACCOUNT_MISMATCH",
+                                     f"settlement names {ev.account} but {ev.auth_id} was authorized on "
+                                     f"{auth.account}; rejected")
+            return f"{ev.id} SETTLEMENT {ev.auth_id} {ev.amount} -> REJECTED (account mismatch)"
         if self.ledger.settlement_of(ev.auth_id) is not None:
             self.ledger.append_error(ev.posting_day, ev.id, "ALREADY_SETTLED",
                                      f"{ev.auth_id} already settled; rejected")

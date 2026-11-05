@@ -29,14 +29,28 @@ The rule: "assessed once per day per account when that day's closing ledger
 balance (all entries with value_date ≤ that day) is negative."
 
 Options: (a) assess only the current processing day at each close; (b) at
-each close, re-assess every day ≤ today against the ledger as known now.
+each close, re-assess every day ≤ today against the ledger as known now;
+(c) read "once per day" as *once per close* — at most one fee per account per
+processing day, whatever the history looks like.
 
-**Chose (b).** The parenthetical "all entries with value_date ≤ that day" is
-a value-date definition; the only way to honour it after E7 is to re-examine
-Days 2–4 on Day 5. Days are walked ascending so the Day 2 fee is in the Day 3
-balance before Day 3 is judged. Idempotent: a second run books nothing.
-Option (a) is engine v1 (REJECTED.md Part 2A). **Where:**
-`Engine.end_of_day_fees`.
+**Chose (b).** Three reasons, in order of weight:
+
+1. The parenthetical "all entries with value_date ≤ that day" is a value-date
+   definition of the balance being tested; the only way to honour it after E7
+   is to re-examine Days 2–4 on Day 5.
+2. Criterion 1 itself: "the Day 2 closing ledger balance, evaluated at end of
+   Day 5 **and before any fee is assessed**". That qualifier only has any
+   effect if a fee assessed at the end of Day 5 can land on Day 2. Under (a)
+   no fee can ever touch Day 2 and the words are dead; the setter wrote them,
+   so the setter expects a Day-2 fee to be booked on Day 5.
+3. Under (a) the Day 2 and Day 4 closes sit at −395 / −205 by value date with
+   no fee against them, which the rule's own definition says cannot happen.
+
+Days are walked ascending so the Day 2 fee is in the Day 3 balance before
+Day 3 is judged. Idempotent: a second run books nothing. (a) is engine v1
+(REJECTED.md Part 2A). (c) grammatically detaches "once per day" from "that
+day's closing balance", and even under (c) the single fee would be for Day 5,
+not Day 2 — it rescues no criterion. **Where:** `Engine.end_of_day_fees`.
 
 ## 3. Fee value_date: "the day assessed" — assessed *for* or assessed *on*?
 
@@ -44,15 +58,22 @@ Option (a) is engine v1 (REJECTED.md Part 2A). **Where:**
 discovered and the fee booked on Day 5. Is the fee's value_date Day 2 (the
 day that was assessed) or Day 5 (the day the assessment ran)?
 
-**Chose Day 2** (the day being assessed). The fee is a consequence of Day 2's
-balance; dating it Day 2 keeps "that day's closing balance" self-consistent
-(Day 2 ends at −395.00) and is what the phrase most naturally means. The
-posting_day records Day 5 separately, so nothing is lost.
+**Chose Day 2** (the day being assessed *for*). The plain-English case for
+Day 5 is real — "the day [the fee is] assessed" can mean the day the
+assessment ran — so this rests on evidence, not grammar: criterion 1 qualifies
+the Day 2 balance with "before any fee is assessed", which presupposes a fee
+that lands on Day 2 (see §2); criterion 2, wrong as it is about the count,
+places the fee "on Day 2"; and in value-dated banking a charge caused by a
+day's balance carries that day's value date so that interest from that day
+reflects it. Dating it Day 2 also keeps "that day's closing balance"
+self-consistent (Day 2 ends at −395.00). The posting_day records Day 5
+separately, so nothing is lost.
 
 Consequence worth knowing: it does **not** change which days get fees in
 this stream — with value_date Day 5 instead, Days 2, 4 and 5 are still the
-negative ones. It does change the Day 2–4 restated balances and therefore
-the interest schedule by a few fils. One coupling to be aware of: the
+negative ones. It changes the restated Day 2–4 balances (250 / 650 / 465
+instead of 225 / 625 / 415) and therefore the interest: 0.97 instead of
+0.93, final 390.97 instead of 390.93. Four fils. One coupling to be aware of: the
 once-per-day latch is keyed on the fee's `ref` (`overdraft:<day>`), not its
 value_date, precisely so that the alternative reading would still latch the
 right day (a Day-2 fee value-dated Day 5 must not block the Day-5 fee).
@@ -84,9 +105,13 @@ that day's close; (b) derive the whole schedule from the final value-dated
 history.
 
 **Chose (b).** The spec says accruals are "on the closing ledger balance",
-which after E7/E9 means the restated one. (a) was engine v1 and gave a
-capitalised figure (0.83; 0.81 in v2 once fees were right) that blended three
-different beliefs about Day 2.
+which after E7/E9 means the restated one. More fundamentally: in banking the
+value date *is* the interest-effective date — that is what the concept is
+for. A debit value-dated Day 2 is a statement that the money left on Day 2
+for interest purposes, and interest for Days 2 onward is recomputed. A system
+that freezes each day's accrual on what it knew that evening has value dates
+in name only. (a) was engine v1 and gave a capitalised figure (0.83; 0.81 in
+v2 once fees were right) that blended three different beliefs about Day 2.
 The per-day report still prints an "accrued to date (provisional)" figure
 so a reader can watch it fall on Day 5 and recover on Day 6. **Where:**
 `Engine.interest_schedule`.
@@ -144,10 +169,15 @@ for. **Where:** `Engine._authorize`; asserted in `test_scenario.py`
 
 ## 12. Which instalment absorbs the rounding remainder?
 
-10.000 / 3 leaves 0.001. **Chose:** the last instalment (3.333, 3.333,
-3.334), so the first n−1 are the literal equal quotient and the adjustment is
-in one predictable place. First-instalment is equally valid; the sum is what
-matters. **Where:** `money.split_equal`.
+10.000 / 3 leaves 0.001. Three options: put the remainder on the last
+instalment; put it on the first; or treat "three *equal* instalments" as
+literally impossible at BHD precision and reject E10 as malformed.
+**Chose:** the last instalment (3.333, 3.333, 3.334), so the first n−1 are
+the literal equal quotient and the adjustment is in one predictable place.
+First-instalment is equally valid; the sum is what matters. Rejecting the
+event is what a strict reading of "equal" demands, but it is not how
+instalment plans work anywhere — the plan conserves the total and documents
+which instalment absorbs the rounding. **Where:** `money.split_equal`.
 
 ## 13. Are three instalments three entries or one?
 
@@ -296,3 +326,53 @@ authorization. This is pinned by a test so it cannot drift silently
 A design that re-activates the hold would need `settlement_of` to ignore
 reversed settlements; I did not want a reversal to silently create a live
 hold. **Where:** `Ledger.settlement_of`.
+
+## 30. Fees and interest: on ledger balance or available balance?
+
+Both rules say "closing **ledger** balance", and the fee rule defines it as a
+sum of *entries*; holds are not entries, and the authorization rule defines
+available as "ledger balance minus active holds" — a different quantity. So
+the text settles it: fees and interest are on the ledger balance; available
+is used in exactly one place, the authorization decision. The economics
+agree: a fee charges for money that actually left, and an open hold is money
+that may never leave. On Day 2, with Auth-A open, available was 50.00 and the
+fee check saw 250.00. Not an ambiguity so much as a confirmation, recorded
+because it is the first thing a reader asks. **Where:** `Engine.end_of_day_fees`,
+`Engine.interest_schedule`, `Ledger.available`.
+
+## 31. Transactions approved before a backdated debit lands
+
+The mirror of §11. Auth-A was approved on Day 2 against available 50.00; by
+value date, once E7 lands, there was never money for it (Day 2 = −370). Its
+settlement on Day 4 was posted when the balance showed 650; by value date it
+took Day 4 from +30 to −155. **Chose:** they stand. Neither is re-evaluated,
+reversed or flagged. An authorization is a decision made at a moment on the
+information available then; a ledger that clawed back approved transactions
+on later information would be unusable for the merchant side. The account
+carries the exposure, and the fee cascade is the only mechanism the spec
+offers in return. A production system would likely *flag* Auth-A as
+"approved on a later-restated balance" for risk review without touching the
+money; that is reporting, not a ledger-core rule. **Where:** `Engine._authorize`
+(no re-run path exists).
+
+---
+
+## What each choice is worth
+
+Final ACC-001 balance under the readings above, so a reader can see which
+decisions move money and by how much. Every row was produced by running the
+engine with that one reading swapped in (the script is not in the repo; the
+figures are reproducible from the descriptions).
+
+| Reading | Fees for | Restated D2–D5 | Interest | Final |
+|---|---|---|---|---|
+| **Chosen** — fee value-dated to the day assessed for (§3); accruals from restated history (§6) | 2, 4, 5 | 225 / 625 / 415 / 390 | 0.93 | **390.93** |
+| Fee value-dated to the day the assessment ran (§3 alternative) | 2, 4, 5 | 250 / 650 / 465 / 390 | 0.97 | 390.97 |
+| Accruals frozen at each day's own close (§6 alternative, engine v2) | 2, 4, 5 | 225 / 625 / 415 / 390 | 0.81 | 390.81 |
+| Current-day-only fee check + frozen accruals (engine v1) | 5 | 250 / 650 / 465 / 440 | 0.83 | 440.83 |
+| Criterion 4 rejected — E6 force-posted as a flagged debit (§9 alternative) | 2, 4, 5 | 225 / 625 / 235 / 210 | 0.69 | 210.69 |
+| Criterion 6's intent — fees unwound by E9 (§10 alternative) | none net | 250 / 650 / 465 / 465 | 1.03 | 466.03 |
+
+What does not move under any reading that re-examines past days: three fees
+(Days 2, 4, 5), the Day 5 close at −230.00, Day 6 at 390.00 before interest,
+Auth-B declined, E6 rejected, 3.333 / 3.333 / 3.334, and BHD 10.008.

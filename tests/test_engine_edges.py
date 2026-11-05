@@ -219,3 +219,34 @@ class FoundByReview(unittest.TestCase):
         eng.run()
         self.assertFalse(eng.reports[0].is_last)
         self.assertTrue(eng.reports[1].is_last)
+
+
+class FoundByReEvaluation(unittest.TestCase):
+    """Input-integrity gaps found on a second, slower pass over the engine
+    (WORKLOG.md, 2026-11-05). None is reachable from the assignment's stream."""
+
+    def test_settlement_naming_the_wrong_account_is_rejected(self):
+        eng = engine([
+            Credit("c", 1, "A", amount=D("100.00"), value_date=1),
+            Authorization("a", 1, "A", auth_id="X", amount=D("10.00"), value_date=1),
+            Settlement("s", 2, "B", auth_id="X", amount=D("10.000"), value_date=2),   # B, not A
+        ])
+        eng.run()
+        self.assertEqual([e.code for e in eng.ledger.errors], ["ACCOUNT_MISMATCH"])
+        self.assertEqual(eng.ledger.auth_state("X"), "ACTIVE")       # hold untouched
+        self.assertEqual(eng.ledger.balance("B", 3), D("0.000"))     # nothing posted to B
+
+    def test_non_positive_amounts_are_structural_errors(self):
+        from ledger.ledger import LedgerError
+        for bad in (Credit("c", 1, "A", amount=D("-5.00"), value_date=1),
+                    Debit("d", 1, "A", amount=D("0.00"), value_date=1),
+                    Authorization("a", 1, "A", auth_id="X", amount=D("-1.00"), value_date=1)):
+            with self.assertRaises(LedgerError):
+                engine([bad], days=1).run()
+
+    def test_duplicate_event_id_is_a_structural_error(self):
+        from ledger.ledger import LedgerError
+        eng = engine([Credit("E1", 1, "A", amount=D("5.00"), value_date=1),
+                      Credit("E1", 1, "A", amount=D("5.00"), value_date=1)], days=1)
+        with self.assertRaises(LedgerError):
+            eng.run()

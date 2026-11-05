@@ -139,3 +139,35 @@ draft of every document in this repo. Entries below say who did what.
   5e62585→91a6b59, 2ac8d86→e4ef48b, ce0692e→19257b5, 135e535→91a5570,
   4bbcb30→98f7a67, 50594de→e2b74ec, 95fa2e5→4ab3c6c, eb45e75→9bf71ed,
   fff3971→74d2db2, 89c47fe→5c391b7, 751bd2d→0bbc4b9, 778f61c→05c6113.
+
+## 2026-11-05
+
+- **16:34** — **Re-evaluation at higher effort.** Yazan asked for the whole
+  solution to be re-examined. Done cold: re-read every file, recomputed the
+  six days by hand without the program, re-argued each criterion and each
+  ambiguity from the spec text. Outcomes:
+  - *Arithmetic:* hand calculation matches the program line for line. No
+    number changed. Verdicts on all eight criteria unchanged.
+  - *Code:* three input-integrity gaps, none reachable from the stream — a
+    settlement naming a different account from its authorization posted to
+    the wrong account (same family as the reversal bug the review found);
+    non-positive amounts were accepted (a negative credit is a debit in
+    disguise); duplicate event ids were accepted (a reversal would then undo
+    both). All three now raise or reject, each with a test. 78 tests.
+  - *Docs — arguments strengthened, not conclusions:* §2 and §3 now cite
+    criterion 1's own "before any fee is assessed" as textual evidence that
+    the setter expects a Day-2 fee booked on Day 5 (previously argued from
+    "most natural meaning"); §2 adds and dismisses a fourth reading, "once
+    per close"; §6 states the banking definition of value date (it *is* the
+    interest-effective date), which is the real reason accruals are
+    recomputed; §12 records "reject E10 as impossible to split equally" as a
+    considered option. New §30 (fees and interest on ledger, not available)
+    and §31 (pre-E7 approvals stand) — both came out of Yazan's questions on
+    the 4th. REJECTED.md criterion 2 now shows the criterion failing under
+    all four readings.
+  - *New:* a "what each choice is worth" table closing AMBIGUITIES.md — the
+    final balance under each rejected reading (390.97, 390.81, 440.83,
+    210.69, 466.03 against the chosen 390.93), each produced by running the
+    engine with that reading swapped in. It also lists what does not move
+    under any reading. That table is the one-paragraph answer to "how
+    sensitive is your result to your interpretation".

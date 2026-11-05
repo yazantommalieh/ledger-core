@@ -10,7 +10,7 @@ Python 3.10+, standard library only (`decimal`, `dataclasses`, `unittest`).
 
 ```
 python3 replay.py              # replay the six-day event stream, print the per-day report
-make test                      # the green suite (75 tests)
+make test                      # the green suite (78 tests)
 make test-known-limitation     # the one test that FAILS BY DESIGN
 make test-all                  # both, in that order
 ```
@@ -78,7 +78,7 @@ tests/
   test_money.py, test_ledger.py, test_engine_edges.py, test_scenario.py
   known_limitation_test.py        <- the deliberately failing test
 NUMBERS.md      every constant, why that value, what "half it" would do
-AMBIGUITIES.md  29 under-specified points and how each was resolved
+AMBIGUITIES.md  31 under-specified points, each resolved; closes with what each choice is worth in fils
 REJECTED.md     the 4 acceptance criteria refused (and why), and 4 abandoned approaches
 WORKLOG.md      timestamped log of the build; the commit history is the other half
 ```

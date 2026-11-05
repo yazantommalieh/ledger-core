@@ -46,9 +46,24 @@ reading of the rule that honours "all entries with value_date ≤ that day".
 but it is *assessed* (posted) on Day 5, because Day 5 is when the ledger first
 learns that Day 2 was overdrawn. The report shows both dates.
 
-The only design under which the criterion is close to true is one that never
-re-examines a closed day (engine v1, Part 2 below): that yields one fee — but
-for Day 5, not Day 2, and it violates the rule's value-date definition.
+The criterion fails under every reading I could construct, which is why I
+am confident it is one of the planted errors rather than a different
+interpretation:
+
+- *Re-assess past days, fee value-dated to the day it is for* (chosen): three
+  fees, for Days 2, 4, 5.
+- *Re-assess past days, fee value-dated to the day the assessment ran*: still
+  three fees — Days 2, 4 and 5 are negative before any fee is added.
+- *Never re-examine a closed day* (engine v1, Part 2A): one fee, but for
+  **Day 5**, not Day 2 — and it leaves Days 2 and 4 negative by value date
+  with no fee, contradicting the rule's own definition.
+- *"Once per day" means once per close*: one fee per processing day, again
+  for Day 5. Nothing in the text points the single fee at Day 2.
+
+"Exactly one" and "on Day 2" cannot both be true under any of them.
+Criterion 1's own wording — "before any fee is assessed" qualifying the
+Day 2 balance — tells us the setter expects a fee to land on Day 2 at the
+Day 5 close; given that, Days 4 and 5 follow arithmetically.
 
 ### Criterion 6 — "After E9, all balances and fees return to their pre-E7 values"
 
