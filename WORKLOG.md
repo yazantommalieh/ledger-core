@@ -189,3 +189,8 @@ draft of every document in this repo. Entries below say who did what.
   sections, same control, same nine authorization endings, same sixteen cuts;
   the sensitivity material and the Islamic-window note folded into single
   lines. Re-rendered to `docs/architecture.pdf`.
+- **21:29** — Yazan: too dense. Part 2 restyled: same text, more space, one
+  accent colour, run-in sub-headings in §1, owner/effect list in §2, the two
+  key answers (cheapest fix, the one control) as callouts, §3 and §4 as
+  tables with the "today" behaviour as a grey sub-line and §4 grouped into
+  storage / money / fees / authorizations / time / input. 4 pages.

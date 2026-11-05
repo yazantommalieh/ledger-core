@@ -4,90 +4,157 @@
 <meta charset="utf-8">
 <title>ledger-core - Architecture &amp; Trade-offs</title>
 <style>
-  @page { size: A4; margin: 12mm 16mm 12mm 16mm; }
-  html { font-size: 9.6pt; }
-  body { font-family: "Inter", "Helvetica Neue", "Liberation Sans", Arial, sans-serif; color: #111; line-height: 1.32; margin: 0; }
-  h1 { font-size: 16pt; margin: 0 0 1pt 0; }
-  .sub { color: #555; font-size: 9pt; margin: 0 0 7pt 0; }
-  h2 { font-size: 11.5pt; margin: 8pt 0 3pt 0; padding-top: 3.5pt; border-top: 1px solid #ccc; break-after: avoid; }
-  p { margin: 0 0 3.5pt 0; }
-  ul, ol { margin: 0 0 4pt 0; padding-left: 15pt; }
-  li { margin: 0 0 1.2pt 0; }
-  code { font-family: "DejaVu Sans Mono", "Liberation Mono", monospace; font-size: 8.9pt; background: #f3f3f3; padding: 0 2px; border-radius: 2px; }
+  @page { size: A4; margin: 16mm 17mm 15mm 17mm; }
+  :root { --ink: #1b1f24; --muted: #5b6470; --accent: #0f5e6b; --accent-soft: #e6f1f3; --rule: #d8dde3; --zebra: #f6f8f9; }
+  html { font-size: 10pt; }
+  body { font-family: "Inter", "Liberation Sans", Arial, sans-serif; color: var(--ink); line-height: 1.45; margin: 0; }
+
+  /* header */
+  .kicker { font-size: 8.5pt; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin: 0 0 3pt 0; }
+  h1 { font-family: "Inter Display", "Inter", sans-serif; font-size: 22pt; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4pt 0; }
+  .meta { color: var(--muted); font-size: 9pt; margin: 0 0 10pt 0; }
+  .bar { height: 2.5pt; background: var(--accent); width: 42pt; margin: 0 0 10pt 0; }
+  .intro { font-size: 10.6pt; line-height: 1.55; margin: 0 0 6pt 0; }
+
+  /* sections */
+  h2 { font-family: "Inter Display", "Inter", sans-serif; font-size: 14pt; font-weight: 700; margin: 15pt 0 7pt 0; padding-bottom: 4pt; border-bottom: 1px solid var(--rule); break-after: avoid; }
+  h2 .n { color: var(--accent); margin-right: 6pt; }
+  h3 { font-size: 10.5pt; font-weight: 600; margin: 10pt 0 3pt 0; break-after: avoid; }
+  p { margin: 0 0 6pt 0; }
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 8.8pt; background: #eef1f3; padding: 0.5pt 3pt; border-radius: 3px; }
   b { font-weight: 600; }
-  .note { font-size: 7.8pt; color: #555; margin-top: 4pt; border-top: 1px solid #ddd; padding-top: 2pt; line-height: 1.25; }
+
+  /* callout */
+  .callout { background: var(--accent-soft); border-left: 3pt solid var(--accent); padding: 6pt 10pt; margin: 7pt 0 7pt 0; break-inside: avoid; }
+  .callout .t { font-weight: 700; color: var(--accent); margin: 0 0 2pt 0; font-size: 10pt; }
+  .callout p { margin: 0 0 3pt 0; }
+
+  /* owner list (section 2) */
+  table.owners { border-collapse: collapse; width: 100%; margin: 4pt 0 6pt 0; }
+  table.owners td { vertical-align: top; padding: 4pt 6pt 4pt 0; border-bottom: 1px solid var(--rule); }
+  table.owners td.k { width: 23%; font-weight: 600; color: var(--accent); padding-right: 10pt; }
+  table.owners tr:last-child td { border-bottom: none; }
+
+  /* data tables (sections 3, 4) */
+  table.grid { border-collapse: collapse; width: 100%; font-size: 9.1pt; line-height: 1.38; margin: 4pt 0 6pt 0; }
+  table.grid th { text-align: left; font-weight: 600; color: var(--muted); font-size: 8.3pt; letter-spacing: 0.06em; text-transform: uppercase; padding: 4pt 7pt; border-bottom: 1.5px solid var(--accent); }
+  table.grid td { vertical-align: top; padding: 5pt 7pt; border-bottom: 1px solid var(--rule); }
+  table.grid tr:nth-child(even) td { background: var(--zebra); }
+  table.grid tr { break-inside: avoid; }
+  table.grid thead { display: table-header-group; }
+  td.lead { font-weight: 600; }
+  .today { display: block; color: var(--muted); font-size: 8.4pt; margin-top: 2pt; font-weight: 400; }
+  tr.group td { background: var(--accent-soft) !important; color: var(--accent); font-weight: 700; font-size: 8.8pt; letter-spacing: 0.04em; padding: 4pt 7pt; }
+
+  .closing { margin-top: 12pt; padding-top: 8pt; border-top: 1px solid var(--rule); font-size: 10.4pt; }
+  .refs { font-size: 8.2pt; color: var(--muted); line-height: 1.4; margin-top: 8pt; }
 </style>
 </head>
 <body>
 
-<h1>ledger-core - Architecture &amp; Trade-offs</h1>
-<p class="sub">Yazan Tommalieh · November 2026 · Companion to the Part&nbsp;1 repository</p>
+<p class="kicker">ledger-core · Part 2</p>
+<h1>Architecture &amp; Trade-offs</h1>
+<p class="meta">Yazan Tommalieh · November 2026 · Companion to the Part 1 repository</p>
+<div class="bar"></div>
 
-<p>The core has one primitive: <code>balance(account, value_date_upto, as_of_posting_day)</code>, a sum over an append-only log where every record carries the day it was posted and the day it is effective. There is no running balance. Hold state, the once-per-day fee check and the interest schedule are all queries over that log. That is why it is correct under backdated entries, and why it is slow.</p>
+<p class="intro">The core has one primitive: <code>balance(account, value_date_upto, as_of_posting_day)</code>, a sum over an append-only log where every record carries the day it was posted and the day it is effective. There is no running balance. Hold state, the once-per-day fee check and the interest schedule are all queries over that log. That is why it is correct under backdated entries, and why it is slow.</p>
 
-<h2>1. Append-only at scale</h2>
+<!-- ============================================================ -->
+<h2><span class="n">1</span>Append-only at scale</h2>
 
-<p><b>What breaks first: the end-of-day close.</b> Every close re-checks every past day for every account, because a backdated entry can make an already-closed day negative. Each check scans the whole log. One close costs about <i>days × accounts × entries</i>, and entries grow with <i>days × accounts</i>: quadratic in both. At 100× accounts it does roughly 10,000× the work, and the close is the one job with a deadline. Nothing goes wrong; it just stops finishing on time.</p>
+<h3>What breaks first: the end-of-day close</h3>
+<p>Every close re-checks every past day for every account, because a backdated entry can make an already-closed day negative. Each check scans the whole log. One close costs about <i>days × accounts × entries</i>, and entries grow with <i>days × accounts</i>: quadratic in both. At 100× accounts it does roughly 10,000× the work, and the close is the one job with a deadline. Nothing goes wrong; it just stops finishing on time.</p>
 
-<p><b>Where state grows without bound.</b> The three logs (entries, authorizations, errors) grow by design: they are the audit record. The set of seen event ids grows by accident. Every lookup is a linear scan, and one global sequence number couples all accounts, making the engine a single writer.</p>
+<h3>Where state grows without bound</h3>
+<p>The three logs (entries, authorizations, errors) grow by design: they are the audit record. The set of seen event ids grows by accident. Every lookup is a linear scan, and one global sequence number couples all accounts, making the engine a single writer.</p>
 
-<p><b>Cheapest fix: close the period.</b> Pick a horizon <i>H</i>, the last closed business day. Refuse any entry value-dated before <i>H</i> - one comparison in <code>append_entry</code>. At each close, write one snapshot row per account: balance, holds and fee flags as of <i>H</i>. Then every balance is snapshot plus a scan of entries after <i>H</i>; the close re-checks only the days since <i>H</i>; the id set only needs ids after <i>H</i>. Audit is unchanged because the snapshot is derived from the log. It bounds the problem instead of speeding up the scan. Left for later: the log stays unbounded (five-year retention), and parallel processing needs a sequence per account. An index comes after those.</p>
+<div class="callout">
+  <p class="t">Cheapest fix: close the period</p>
+  <p>Pick a horizon <i>H</i>, the last closed business day. Refuse any entry value-dated before <i>H</i> - one comparison in <code>append_entry</code>. At each close, write one snapshot row per account: balance, holds and fee flags as of <i>H</i>.</p>
+  <p>Then every balance is snapshot plus a scan of entries after <i>H</i>; the close re-checks only the days since <i>H</i>; the id set only needs ids after <i>H</i>. Audit is unchanged because the snapshot is derived from the log. It bounds the problem instead of speeding up the scan.</p>
+  <p>Left for later: the log stays unbounded (five-year retention), and parallel processing needs a sequence per account. An index comes after those.</p>
+</div>
 
-<h2>2. Value-dated entries in production</h2>
+<!-- ============================================================ -->
+<h2><span class="n">2</span>Value-dated entries in production</h2>
 
-<p>A value-dated entry rewrites history. In Part&nbsp;1 one backdated debit restated three closed days, produced three fees in one close and declined an authorization; its reversal restated the days again and left the fees standing. In a UAE-licensed bank each effect has an owner.</p>
+<p>A value-dated entry rewrites history. In Part 1 one backdated debit restated three closed days, produced three fees in one close and declined an authorization; its reversal restated the days again and left the fees standing. In a UAE-licensed bank each effect has an owner.</p>
 
-<ul>
-  <li><b>Customers and complaints.</b> Issued statements become wrong, and a fee appears for a day the customer saw as positive. CBUAE Consumer Protection Standards (Circular 8/2020, Art.&nbsp;8): acknowledge a complaint within 2 business days, answer within 30, keep the file five years. Re-assessed fees will be the main source of those complaints.</li>
-  <li><b>Fees.</b> Overdraft charges sit under the CBUAE retail fee caps (Regulations 29/2011, Annexure&nbsp;2, amended 2018); a new fee or a change above 5% needs prior CBUAE approval. An engine that turns one backdated debit into three charges is a fee behaviour compliance must approve and the customer agreement must describe.</li>
-  <li><b>Finance.</b> Interest is recomputed from restated history, so a backdated entry across a month-end changes reported income; the general ledger needs reversing journals the core does not produce.</li>
-  <li><b>Audit and AML.</b> Every record has both dates, so “what did we know on Day&nbsp;5” is a query, and the log meets the five-year retention in Federal Decree-Law No.&nbsp;10 of 2025. It does not record who backdated an entry or why.</li>
-  <li><b>Context.</b> Under EU PSD2 Art.&nbsp;87(3) a debit cannot be value-dated earlier than the debit itself, so the Part&nbsp;1 backdated debit would be unlawful there as a customer payment. In a UAE bank, legitimate backdating is bank-side only: scheme clearing (T+1/T+2, carrying the transaction date), corrections and adjustments.</li>
-</ul>
+<table class="owners">
+  <tr><td class="k">Customers and complaints</td><td>Issued statements become wrong, and a fee appears for a day the customer saw as positive. CBUAE Consumer Protection Standards (Circular 8/2020, Art. 8): acknowledge a complaint within 2 business days, answer within 30, keep the file five years. Re-assessed fees will be the main source of those complaints.</td></tr>
+  <tr><td class="k">Fees</td><td>Overdraft charges sit under the CBUAE retail fee caps (Regulations 29/2011, Annexure 2, amended 2018); a new fee or a change above 5% needs prior CBUAE approval. An engine that turns one backdated debit into three charges is a fee behaviour compliance must approve and the customer agreement must describe.</td></tr>
+  <tr><td class="k">Finance</td><td>Interest is recomputed from restated history, so a backdated entry across a month-end changes reported income; the general ledger needs reversing journals the core does not produce.</td></tr>
+  <tr><td class="k">Audit and AML</td><td>Every record has both dates, so “what did we know on Day 5” is a query, and the log meets the five-year retention in Federal Decree-Law No. 10 of 2025. It does not record who backdated an entry or why.</td></tr>
+  <tr><td class="k">Context</td><td>Under EU PSD2 Art. 87(3) a debit cannot be value-dated earlier than the debit itself, so the Part 1 backdated debit would be unlawful there as a customer payment. In a UAE bank, legitimate backdating is bank-side only: scheme clearing (T+1/T+2, carrying the transaction date), corrections and adjustments.</td></tr>
+</table>
 
-<p><b>The one control before go-live: a backdating horizon with maker-checker.</b> The core refuses entries value-dated before the last closed day. Anything that must land behind it goes into an adjustments queue; a second person approves it with a reason code, and the approval is appended to the log. This bounds how much history can be rewritten, creates the audit trail an examiner asks for first, and is the condition under which automatic fee re-assessment is safe. The second control - linking each fee to the entry that caused it, so reversing the cause reverses the fee - is the failing test in Part&nbsp;1 and item&nbsp;4 below.</p>
+<div class="callout">
+  <p class="t">The one control before go-live: a backdating horizon with maker-checker</p>
+  <p>The core refuses entries value-dated before the last closed day. Anything that must land behind it goes into an adjustments queue; a second person approves it with a reason code, and the approval is appended to the log.</p>
+  <p>This bounds how much history can be rewritten, creates the audit trail an examiner asks for first, and is the condition under which automatic fee re-assessment is safe. The second control - linking each fee to the entry that caused it, so reversing the cause reverses the fee - is the failing test in Part 1 and item 4 in section 4.</p>
+</div>
 
-<h2>3. Authorization lifecycle</h2>
+<!-- ============================================================ -->
+<h2><span class="n">3</span>Authorization lifecycle</h2>
 
 <p>In the model an authorization is a decision record whose state (declined, active, settled) is derived from whether a settlement references it. The only ending implemented in full is a matching settlement. The others:</p>
 
-<ul>
-  <li><b>Declined at request.</b> Case: not enough available funds (in practice also fraud rules). Mandate: final, with a reason code; a later backdated credit does not re-open it.</li>
-  <li><b>Duplicate request.</b> Case: network retry. Mandate: return the original decision, no second hold. (The model records an error instead.)</li>
-  <li><b>Never settled.</b> Case: abandoned pre-authorization - hotel, car rental, fuel, a cancelled order. Model: the hold lives forever. Mandate: expire per scheme rules - Visa 7 days (31 for lodging, car rental, cruise), Mastercard 7 (30 for pre-authorizations); release the hold, record the expiry.</li>
-  <li><b>Reversed by the merchant.</b> Case: order cancelled before capture. Model: no such event. Mandate: a new event; full reversal voids the hold, partial reduces it; only the merchant can originate it.</li>
-  <li><b>Late presentment or no authorization.</b> Case: stand-in processing while the issuer was down, offline chip approval, force-post. Model: rejected (Part&nbsp;1 criterion&nbsp;4). Mandate: post it, flagged, so the ledger matches money the scheme has already settled, and send it to disputes; the remedy is a chargeback, not refusal.</li>
-  <li><b>Settled for a different amount.</b> Case: final bill below the estimate; tips above it. Model: a partial settlement releases the whole hold; over-settlement posts with a warning. Mandate: partial releases the remainder unless multi-capture was flagged; over-capture within the scheme's tolerance for that merchant type.</li>
-  <li><b>Settlement later reversed.</b> Case: refund or chargeback. Model and mandate agree: funds return, the hold is not reinstated; a refund is a new credit and a chargeback its own workflow.</li>
-  <li><b>Account frozen or closed.</b> Not modelled. Mandate: a freeze blocks new authorizations but keeps existing holds; closure releases them and routes late clearings to disputes.</li>
-  <li><b>Incremental authorization.</b> Not modelled (same id is treated as a duplicate). Mandate: amend the existing hold and reset its expiry.</li>
-</ul>
+<table class="grid">
+  <thead><tr><th style="width:24%">Ending</th><th style="width:30%">Real-world case</th><th>What I would mandate</th></tr></thead>
+  <tbody>
+  <tr><td class="lead">Declined at request<span class="today">Today: recorded, no hold, never revisited</span></td><td>Not enough available funds (in practice also fraud rules).</td><td>Final, with a reason code; a later backdated credit does not re-open it.</td></tr>
+  <tr><td class="lead">Duplicate request<span class="today">Today: rejected as an error</span></td><td>Network retry.</td><td>Return the original decision, no second hold.</td></tr>
+  <tr><td class="lead">Never settled<span class="today">Today: the hold lives forever</span></td><td>Abandoned pre-authorization - hotel, car rental, fuel, a cancelled order.</td><td>Expire per scheme rules - Visa 7 days (31 for lodging, car rental, cruise), Mastercard 7 (30 for pre-authorizations); release the hold, record the expiry.</td></tr>
+  <tr><td class="lead">Reversed by the merchant<span class="today">Today: no such event</span></td><td>Order cancelled before capture.</td><td>A new event; full reversal voids the hold, partial reduces it; only the merchant can originate it.</td></tr>
+  <tr><td class="lead">Late presentment or no authorization<span class="today">Today: rejected (Part 1 criterion 4)</span></td><td>Stand-in processing while the issuer was down, offline chip approval, force-post.</td><td>Post it, flagged, so the ledger matches money the scheme has already settled, and send it to disputes; the remedy is a chargeback, not refusal.</td></tr>
+  <tr><td class="lead">Settled for a different amount<span class="today">Today: partial releases the whole hold; over-settlement posts with a warning</span></td><td>Final bill below the estimate; tips above it.</td><td>Partial releases the remainder unless multi-capture was flagged; over-capture within the scheme's tolerance for that merchant type.</td></tr>
+  <tr><td class="lead">Settlement later reversed<span class="today">Today: funds return, hold not reinstated</span></td><td>Refund or chargeback.</td><td>Same as today: a refund is a new credit, a chargeback its own workflow.</td></tr>
+  <tr><td class="lead">Account frozen or closed<span class="today">Today: not modelled</span></td><td>Fraud freeze, legal hold, dormancy, closure.</td><td>A freeze blocks new authorizations but keeps existing holds; closure releases them and routes late clearings to disputes.</td></tr>
+  <tr><td class="lead">Incremental authorization<span class="today">Today: same id is treated as a duplicate</span></td><td>Hotel stay extended.</td><td>Amend the existing hold and reset its expiry.</td></tr>
+  </tbody>
+</table>
 
-<h2>4. What I cut and why</h2>
+<!-- ============================================================ -->
+<h2><span class="n">4</span>What I cut and why</h2>
 
+<p>Sixteen simplifications, grouped. Each row: what was cut, why it stayed out of scope, and the production risk it defers.</p>
 
-<ol>
-  <li><b>In-memory lists, linear scans, one global sequence</b> - persistence was out of scope. Risk: quadratic close; single writer; a crash loses the idempotency set, so a replay can double-post.</li>
-  <li><b>Single-sided entries, no double-entry, no transfers</b> - the stream has none. Risk: no debits-equal-credits check; nothing reconciles to the general ledger.</li>
-  <li><b>No hold expiry, merchant reversal, incremental authorization or multi-capture</b> - none in the stream. Risk: holds lock funds forever; a merchant void, the most common real ending, cannot be represented.</li>
-  <li><b>No link from a fee to the entry that caused it, no fee reversal</b> - the spec says when to assess, never when to unwind; this is the deliberately failing test. Risk: a reversed bank error leaves the customer paying. Fix: a trigger reference on each derived entry and a compensating fee reversal.</li>
-  <li><b>Approvals never revisited after a backdated debit</b> - card networks work this way. Risk: the exposure sits with the bank; nothing flags “approved on a balance later restated”.</li>
-  <li><b>Debits never declined, no overdraft limit, flat fee with no cap</b> - the spec gives none. Risk: unlimited overdraft and fee stacking; production needs a limit per account and a cap per cycle.</li>
-  <li><b>Simple daily interest, positive balances only, one capitalisation; no debit interest, tiers, or a profit model for an Islamic window</b> - spec wording. Risk: wrong for any real product; a restated accrual across a reporting period has no journal.</li>
-  <li><b>Integer days, no calendar</b> - the brief's days are abstract. Risk: weekends (Saturday–Sunday here), holidays, cut-offs and Gulf-time day boundaries are undefined.</li>
-  <li><b>Future value dates refused</b> - keeps “balance as of day d” unambiguous. Risk: standing and scheduled payments cannot be represented.</li>
-  <li><b>Backdating unbounded</b> - the exercise depends on it. Risk: full-history restatement; covered by the horizon in section&nbsp;2.</li>
-  <li><b>Structural faults stop the replay</b> (precision, unknown account, duplicate id, bad amount) - right for a test harness. Risk: one bad message halts production; needs a dead-letter queue.</li>
-  <li><b>Rejections are only logged</b> - the brief asks for errors to be printed. Risk: a real force-post never reaches disputes; settled money goes unaccounted.</li>
-  <li><b>No operator, channel, reason code or external reference on entries</b> - the stream carries none. Risk: audit knows what and when, not who or why; no reconciliation to scheme files.</li>
-  <li><b>Only an AED fee configured</b> - the spec gives one. Risk: an overdrawn BHD account produces an error, not a charge; needs per-currency configuration.</li>
-  <li><b>HALF_UP, rounded daily then summed</b> - spec wording. Risk: must match the customer agreement (the difference is fils).</li>
-  <li><b>No account lifecycle</b> - out of scope. Risk: freeze and closure behaviour for holds is undefined.</li>
-</ol>
+<table class="grid">
+  <thead><tr><th style="width:33%">Simplification</th><th style="width:22%">Why it stayed out</th><th>Risk it defers</th></tr></thead>
+  <tbody>
+  <tr class="group"><td colspan="3">Storage and scale</td></tr>
+  <tr><td class="lead">In-memory lists, linear scans, one global sequence</td><td>Persistence was out of scope.</td><td>Quadratic close; single writer; a crash loses the idempotency set, so a replay can double-post.</td></tr>
+  <tr><td class="lead">Backdating unbounded</td><td>The exercise depends on it.</td><td>Full-history restatement; covered by the horizon in section 2.</td></tr>
 
-<p>In one line: the core is a query over an immutable log - right and slow. Production keeps the log and adds a horizon, links on derived entries, and the authorization events the card world actually sends.</p>
+  <tr class="group"><td colspan="3">Money model</td></tr>
+  <tr><td class="lead">Single-sided entries, no double-entry, no transfers</td><td>The stream has none.</td><td>No debits-equal-credits check; nothing reconciles to the general ledger.</td></tr>
+  <tr><td class="lead">Simple daily interest, positive balances only, one capitalisation; no debit interest, tiers, or a profit model for an Islamic window</td><td>Spec wording.</td><td>Wrong for any real product; a restated accrual across a reporting period has no journal.</td></tr>
+  <tr><td class="lead">HALF_UP, rounded daily then summed</td><td>Spec wording.</td><td>Must match the customer agreement (the difference is fils).</td></tr>
+  <tr><td class="lead">Only an AED fee configured</td><td>The spec gives one.</td><td>An overdrawn BHD account produces an error, not a charge; needs per-currency configuration.</td></tr>
 
-<p class="note">References: CBUAE Consumer Protection Standards (Circular 8/2020) Art.&nbsp;8 · CBUAE Regulations 29/2011 Annexure&nbsp;2 (2018) · Federal Decree-Law No.&nbsp;10 of 2025 · PSD2 Art.&nbsp;87 · Visa/Mastercard hold timeframes. Drafted with Claude, as disclosed in the Part&nbsp;1 WORKLOG.</p>
+  <tr class="group"><td colspan="3">Fees</td></tr>
+  <tr><td class="lead">No link from a fee to the entry that caused it, no fee reversal</td><td>The spec says when to assess, never when to unwind; this is the deliberately failing test.</td><td>A reversed bank error leaves the customer paying. Fix: a trigger reference on each derived entry and a compensating fee reversal.</td></tr>
+  <tr><td class="lead">Debits never declined, no overdraft limit, flat fee with no cap</td><td>The spec gives none.</td><td>Unlimited overdraft and fee stacking; production needs a limit per account and a cap per cycle.</td></tr>
+
+  <tr class="group"><td colspan="3">Authorizations</td></tr>
+  <tr><td class="lead">No hold expiry, merchant reversal, incremental authorization or multi-capture</td><td>None in the stream.</td><td>Holds lock funds forever; a merchant void, the most common real ending, cannot be represented.</td></tr>
+  <tr><td class="lead">Approvals never revisited after a backdated debit</td><td>Card networks work this way.</td><td>The exposure sits with the bank; nothing flags “approved on a balance later restated”.</td></tr>
+  <tr><td class="lead">No account lifecycle</td><td>Out of scope.</td><td>Freeze and closure behaviour for holds is undefined.</td></tr>
+
+  <tr class="group"><td colspan="3">Time</td></tr>
+  <tr><td class="lead">Integer days, no calendar</td><td>The brief's days are abstract.</td><td>Weekends (Saturday–Sunday here), holidays, cut-offs and Gulf-time day boundaries are undefined.</td></tr>
+  <tr><td class="lead">Future value dates refused</td><td>Keeps “balance as of day d” unambiguous.</td><td>Standing and scheduled payments cannot be represented.</td></tr>
+
+  <tr class="group"><td colspan="3">Input and errors</td></tr>
+  <tr><td class="lead">Structural faults stop the replay (precision, unknown account, duplicate id, bad amount)</td><td>Right for a test harness.</td><td>One bad message halts production; needs a dead-letter queue.</td></tr>
+  <tr><td class="lead">Rejections are only logged</td><td>The brief asks for errors to be printed.</td><td>A real force-post never reaches disputes; settled money goes unaccounted.</td></tr>
+  <tr><td class="lead">No operator, channel, reason code or external reference on entries</td><td>The stream carries none.</td><td>Audit knows what and when, not who or why; no reconciliation to scheme files.</td></tr>
+  </tbody>
+</table>
+
+<p class="closing">In one line: the core is a query over an immutable log - right and slow. Production keeps the log and adds a horizon, links on derived entries, and the authorization events the card world actually sends.</p>
+
+<p class="refs">References: CBUAE Consumer Protection Standards (Circular 8/2020) Art. 8 · CBUAE Regulations 29/2011 Annexure 2 (2018) · Federal Decree-Law No. 10 of 2025 · PSD2 Art. 87 · Visa/Mastercard hold timeframes. Drafted with Claude, as disclosed in the Part 1 WORKLOG.</p>
 
 </body>
 </html>
