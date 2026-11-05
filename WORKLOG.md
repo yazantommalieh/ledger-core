@@ -51,6 +51,8 @@ happened. Entries say who did what.
   simpler, plain dashes, better structure and some styling, then two pages,
   then a strict scope check against the brief and a rewrite in my own voice.
 - **22:00** — Architecture and trade-offs document completed.
+- **22:00** — Manually running the automated tests, getting ready to submit.
+  78 green, the known-limitation test red as intended, replay matches.
 
 ---
 
