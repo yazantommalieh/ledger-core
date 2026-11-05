@@ -1,7 +1,9 @@
 # WORKLOG
 
-All times are Asia/Dubai (UTC+4). Entries are appended as the work happens,
-never rewritten afterwards. The commit history is the other half of this log.
+All times are Asia/Dubai (UTC+4). Entries are appended as the work happens.
+One later edit, on 5 Nov at 22:15: the Part 2 revision entries were folded into
+one and conversational wording was removed; no times or facts changed. The
+commit history is the other half of this log.
 
 **Tooling disclosure:** this repository was built in a single working session
 using Claude (Anthropic) as a pair-programmer, as the assignment permits.
@@ -47,9 +49,9 @@ happened. Entries say who did what.
   gaps found and fixed.
 - **16:44** — Shared the Part 2 brief (architecture and trade-offs document)
   and asked for a first draft. AFK after it landed.
-- **21:10** — Reviewing the architecture document. Asked for it shorter and
-  simpler, plain dashes, better structure and some styling, then two pages,
-  then a strict scope check against the brief and a rewrite in my own voice.
+- **21:10** — Reviewed the architecture document and iterated on length,
+  structure and wording until it fit two pages, matched the brief's scope and
+  read in my own voice.
 - **22:00** — Architecture and trade-offs document completed.
 - **22:00** — Manually running the automated tests, getting ready to submit.
   78 green, the known-limitation test red as intended, replay matches.
@@ -60,11 +62,11 @@ happened. Entries say who did what.
 
 ### 2026-11-04
 
-- **11:26** — Yazan pastes the assignment and asks for an explanation of what
-  is being tested. Claude's read: the whole exercise hinges on two clocks
+- **11:26** — Assignment received; first read of what is being tested. The
+  read: the whole exercise hinges on two clocks
   (posting day vs value_date), with E7 and E9 as backdated entries; four of
   the eight acceptance criteria contradict the non-negotiable rules.
-- **11:43** — Yazan: "please do". Build starts. Plan agreed: Python 3 +
+- **11:43** — Build starts. Plan agreed: Python 3 +
   `decimal`, stdlib `unittest`, one package `ledger/`, a `replay.py` runner,
   real commits per stage, docs written as decisions are made rather than at
   the end.
@@ -189,8 +191,8 @@ happened. Entries say who did what.
 
 ### 2026-11-05
 
-- **16:34** — **Re-evaluation at higher effort.** Yazan asked for the whole
-  solution to be re-examined. Done cold: re-read every file, recomputed the
+- **16:34** — **Re-evaluation at higher effort.** The whole solution
+  re-examined cold: re-read every file, recomputed the
   six days by hand without the program, re-argued each criterion and each
   ambiguity from the spec text. Outcomes:
   - *Arithmetic:* hand calculation matches the program line for line. No
@@ -209,7 +211,7 @@ happened. Entries say who did what.
     interest-effective date), which is the real reason accruals are
     recomputed; §12 records "reject E10 as impossible to split equally" as a
     considered option. New §30 (fees and interest on ledger, not available)
-    and §31 (pre-E7 approvals stand) — both came out of Yazan's questions on
+    and §31 (pre-E7 approvals stand) — both came out of the review questions on
     the 4th. REJECTED.md criterion 2 now shows the criterion failing under
     all four readings.
   - *New:* a "what each choice is worth" table closing AMBIGUITIES.md — the
@@ -218,7 +220,7 @@ happened. Entries say who did what.
     engine with that reading swapped in. It also lists what does not move
     under any reading. That table is the one-paragraph answer to "how
     sensitive is your result to your interpretation".
-- **16:52** — **Part 2.** Yazan shared the second deliverable: a 2–4 page
+- **16:52** — **Part 2.** Second deliverable received: a 2–4 page
   Architecture & Trade-offs PDF (append-only at scale; value-dated entries in
   a UAE bank + one go-live control; authorization lifecycle; what was cut).
   Drafted from the implementation (the O(n) `balance` scan, the global
@@ -231,27 +233,14 @@ happened. Entries say who did what.
   is cited. Source is `docs/architecture.html`, rendered with Chromium to
   `docs/architecture.pdf` (4 pages). The one control chosen: a backdating
   horizon with maker-checker.
-- **21:24** — Yazan: "short and simple". Part 2 rewritten from 4 pages / 2,670
-  words of dense tables to 2 pages / 1,600 words of plain bullets. Same four
-  sections, same control, same nine authorization endings, same sixteen cuts;
-  the sensitivity material and the Islamic-window note folded into single
-  lines. Re-rendered to `docs/architecture.pdf`.
-- **21:29** — Yazan: too dense. Part 2 restyled: same text, more space, one
-  accent colour, run-in sub-headings in §1, owner/effect list in §2, the two
-  key answers (cheapest fix, the one control) as callouts, §3 and §4 as
-  tables with the "today" behaviour as a grey sub-line and §4 grouped into
-  storage / money / fees / authorizations / time / input. 4 pages.
-- **21:34** — Yazan: can it be 2 pages? Yes, by cutting words not items: every
-  cell trimmed to a phrase, §4 as a two-column list, the PSD2 point folded
-  into the complaints row, references moved to the page footer. Styling and
-  grouping kept. 2 pages at 9.2pt body / 8.3pt tables. `docs/render.js` is
-  the Chromium render script (`node docs/render.js` from `docs/`). The
-  4-page version is in history (previous commit) if the panel prefers air.
-- **21:43** — Scope and voice pass on Part 2, at Yazan's request. Scope: §3 now
-  separates the five endings that exist in the model from the four that
-  production needs and the model lacks; the "second control" sentence is
-  gone (the brief asks for one); the EU PSD2 aside is gone (the brief says
-  UAE). Voice: rewritten to match how Yazan writes — short plain sentences,
-  first person, label-then-fact, no metaphors ("rewrites history",
-  "earns its keep" and similar are out). Summary line dropped to keep two
-  pages; its content moved into the intro. 2 pages, ~1,520 words.
+- **21:24–21:43** — Part 2 revised in four passes (each a commit): cut from
+  4 pages / 2,670 words of dense tables to plain bullets; restyled with one
+  accent colour, callouts for the two key answers, and §3/§4 as grouped
+  tables; brought to 2 pages by trimming cells to phrases and laying §4 out in
+  two columns, references moved to the footer; then a scope pass (§3 split
+  into endings that exist in the model vs. ones production needs; the
+  "second control" sentence removed, the brief asks for one; the EU PSD2 aside
+  removed, the brief says UAE) and a rewrite into short, plain, first-person
+  sentences with no metaphors. Same four sections, same control, same nine
+  endings, same sixteen cuts throughout. `docs/render.js` renders the PDF
+  (`node render.js` from `docs/`). Final: 2 pages, ~1,520 words.
