@@ -171,3 +171,16 @@ draft of every document in this repo. Entries below say who did what.
     engine with that reading swapped in. It also lists what does not move
     under any reading. That table is the one-paragraph answer to "how
     sensitive is your result to your interpretation".
+- **16:52** — **Part 2.** Yazan shared the second deliverable: a 2–4 page
+  Architecture & Trade-offs PDF (append-only at scale; value-dated entries in
+  a UAE bank + one go-live control; authorization lifecycle; what was cut).
+  Drafted from the implementation (the O(n) `balance` scan, the global
+  `_seq`, the missing expiry, the fee-linkage gap behind the failing test).
+  Regulatory references were looked up before going in, not recalled: CBUAE
+  Consumer Protection Standards Art. 8 timelines; Regulations 29/2011
+  Annexure 2 fee caps and the >5% approval rule; PSD2 Art. 87(3); scheme hold
+  expiry windows; and the AML law — which turned out to have been replaced by
+  Federal Decree-Law No. 10 of 2025 (in force 14 Oct 2025), so the new one
+  is cited. Source is `docs/architecture.html`, rendered with Chromium to
+  `docs/architecture.pdf` (4 pages). The one control chosen: a backdating
+  horizon with maker-checker.
