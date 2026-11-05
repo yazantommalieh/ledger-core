@@ -7,11 +7,56 @@ never rewritten afterwards. The commit history is the other half of this log.
 using Claude (Anthropic) as a pair-programmer, as the assignment permits.
 Yazan supplied the assignment, asked for a walkthrough of the problem, agreed
 the approach, and reviewed the results; Claude wrote the code and the first
-draft of every document in this repo. Entries below say who did what.
+draft of every document in this repo. The first section below is Yazan's own
+log, in his words. The second is the build log Claude appended as the work
+happened. Entries say who did what.
 
 ---
 
-## 2026-11-04
+## Yazan's log
+
+### 4 November
+
+- **11:20** — Read the core ledger assignment, structured it for my brain to
+  understand it.
+- **11:35** — Asked the AI to explain the task in a more structured way so I
+  could validate my initial understanding.
+- **11:45** — Asked the AI to create a base version to build on. Used the best
+  model available (Claude, max reasoning effort) since this is a critical
+  payments system.
+- **11:50** — AFK, letting Claude do its work; it will take a while.
+- **12:26** — Claude finished the initial build. AFK again for personal
+  reasons, will come back to it later.
+- **15:30** — Reviewing the AI base solution. Moved the repo to my Mac and
+  re-authored the commits with my own email.
+- **16:30** — Started to manually re-evaluate the stream and produce my own
+  results to compare against the AI's.
+- **16:48** — AFK.
+- **17:38** — Continued the manual evaluation.
+- **18:40** — Manual evaluation by calculation complete. My first pass missed
+  the Day 5 fee and modelled the Auth-A hold as a −200 debit instead of a
+  hold; after correcting those two, my numbers and the AI's matched.
+- **18:41** — AFK.
+
+### 5 November
+
+- **16:00** — Checked and validated the provided criteria, to decide which
+  are wrong and why. Done.
+- **16:28** — Asked for a full re-evaluation of the solution at maximum
+  reasoning effort. Numbers and verdicts unchanged; three input-validation
+  gaps found and fixed.
+- **16:44** — Shared the Part 2 brief (architecture and trade-offs document)
+  and asked for a first draft. AFK after it landed.
+- **21:10** — Reviewing the architecture document. Asked for it shorter and
+  simpler, plain dashes, better structure and some styling, then two pages,
+  then a strict scope check against the brief and a rewrite in my own voice.
+- **22:00** — Architecture and trade-offs document completed.
+
+---
+
+## Build log (Claude)
+
+### 2026-11-04
 
 - **11:26** — Yazan pastes the assignment and asks for an explanation of what
   is being tested. Claude's read: the whole exercise hinges on two clocks
@@ -140,7 +185,7 @@ draft of every document in this repo. Entries below say who did what.
   4bbcb30→98f7a67, 50594de→e2b74ec, 95fa2e5→4ab3c6c, eb45e75→9bf71ed,
   fff3971→74d2db2, 89c47fe→5c391b7, 751bd2d→0bbc4b9, 778f61c→05c6113.
 
-## 2026-11-05
+### 2026-11-05
 
 - **16:34** — **Re-evaluation at higher effort.** Yazan asked for the whole
   solution to be re-examined. Done cold: re-read every file, recomputed the
